@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bolão da Copa do Mundo 2026</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #013324;
+            --accent-color: #bf9b30;
+            --bg-color: #f4f7f6;
+            --text-color: #2c3e50;
+            --card-bg: #ffffff;
+            --gold: #ffd700;
+            --silver: #c0c0c0;
+            --bronze: #cd7f32;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+        }
+
+        /* --- NAVEGAÇÃO --- */
+        nav {
+            background-color: var(--primary-color);
+            padding: 0 20px;
+            display: flex;
+            justify-content: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .tab-button {
+            background: none;
+            border: none;
+            color: white;
+            padding: 15px 25px;
+            cursor: pointer;
+            font-size: 1.2rem; /* Aumenta um pouco o ícone */
+            transition: 0.3s;
+            border-bottom: 4px solid transparent;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Tooltip simples para mostrar o nome da aba ao passar o mouse */
+        .tab-button[title]:hover::after {
+            content: attr(title);
+            position: absolute;
+            top: 55px;
+            background: #333;
+            color: #fff;
+            padding: 5px 10px;
+            font-size: 0.7rem;
+            border-radius: 4px;
+            white-space: nowrap;
+        }
+
+        .tab-button:hover { background-color: rgba(255,255,255,0.1); }
+        .tab-button.active { border-bottom-color: var(--accent-color); color: var(--accent-color); }
+
+        /* --- CONTAINER PRINCIPAL --- */
+        .container {
+            max-width: 1100px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+
+        header { text-align: center; margin-bottom: 40px; }
+        h1 { color: var(--primary-color); font-size: 2.2rem; margin-bottom: 5px; text-transform: uppercase; }
+
+        .tab-content { display: none; animation: fadeIn 0.4s ease; }
+        .tab-content.active { display: block; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* --- ABA REGRAS --- */
+        .rules-container {
+            max-width: 600px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .rule-item {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            border-left: 6px solid var(--accent-color);
+        }
+        .rule-text { font-size: 1.1rem; font-weight: 500; }
+        .rule-points {
+            background: var(--primary-color);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+
+        /* --- ABA RANKING --- */
+        .ranking-card {
+            max-width: 700px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .ranking-table { width: 100%; border-collapse: collapse; text-align: left; }
+        .ranking-table th { background: var(--primary-color); color: white; padding: 15px; text-transform: uppercase; font-size: 0.85rem; }
+        .ranking-table td { padding: 15px; border-bottom: 1px solid #eee; font-size: 1.1rem; }
+        .pos { font-weight: bold; width: 60px; text-align: center; }
+        .points { font-weight: bold; color: var(--primary-color); text-align: right; padding-right: 30px; }
+
+        /* --- ABA PALPITES --- */
+        #match-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(480px, 1fr)); gap: 20px; }
+        .match-card { background: var(--card-bg); border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border-left: 5px solid var(--primary-color); }
+        .match-header { font-size: 0.85rem; color: #7f8c8d; margin-bottom: 15px; display: flex; justify-content: space-between; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+      .match-body { 
+          display: flex; 
+          align-items: center; 
+          justify-content: space-between; 
+          gap: 15px;
+      }
+        .score-input { width: 50px; height: 45px; text-align: center; font-size: 1.5rem; font-weight: bold; border: 2px solid #ddd; border-radius: 8px; }
+
+        /* --- ABA MINHA CONTA --- */
+        .account-card { max-width: 500px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 8px; font-weight: 600; color: var(--primary-color); }
+        .form-group input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+        .save-btn { background-color: var(--primary-color); color: white; border: none; padding: 15px; width: 100%; border-radius: 6px; font-weight: bold; cursor: pointer; }
+
+        @media (max-width: 768px) { #match-list { grid-template-columns: 1fr; } }
+        
+        /* Empurra o botão de logout para a direita */
+        nav {
+            display: flex;
+            justify-content: center;
+            position: relative;
+        }
+
+        .logout-btn {
+            position: absolute;
+            right: 20px;
+            background: none;
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 8px 15px;
+            margin-top: 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: 0.3s;
+        }
+
+        .logout-btn:hover {
+            background-color: var(--error-color);
+            border-color: var(--error-color);
+        }
+
+        /* Ajuste para mobile */
+        @media (max-width: 768px) {
+            nav { flex-direction: column; align-items: center; }
+            .logout-btn { position: static; margin-bottom: 10px; }
+        }
+        
+        /* --- MODAL DE PALPITES --- */
+        .modal {
+            display: none; 
+            position: fixed; 
+            z-index: 2000; 
+            left: 0; top: 0;
+            width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.6);
+            backdrop-filter: blur(3px);
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 10% auto;
+            padding: 25px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 450px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+            position: relative;
+            animation: slideDown 0.3s ease;
+        }
+
+        @keyframes slideDown {
+            from { transform: translateY(-30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .close-modal {
+            position: absolute;
+            right: 20px; top: 15px;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #999;
+        }
+
+        .guess-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .spy-btn {
+            background: none;
+            border: 1px solid #ddd;
+            color: var(--primary-color);
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: 0.3s;
+            margin-left: 10px;
+        }
+
+        .spy-btn:hover {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        /* Remove setas do Chrome, Safari, Edge e Opera */
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        /* Remove setas do Firefox */
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+        
+        /* Define uma largura fixa para os nomes dos times para alinhar os inputs no centro */
+        .team { 
+            flex: 1; 
+            font-weight: 500;
+            font-size: 1rem;
+        }
+
+        .team:first-child {
+            text-align: right; /* Time da esquerda encosta no input */
+        }
+
+        .team:last-child {
+            text-align: left; /* Time da direita encosta no input */
+        }
+
+        /* Container dos inputs centralizado */
+        .score-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            justify-content: center;
+            min-width: 130px; /* Garante que o centro tenha sempre o mesmo tamanho */
+        }
+    </style>
+</head>
+<body>
+
+<nav>
+    <button class="tab-button active" onclick="openTab(event, 'palpites')" title="Meus Palpites">
+        <i class="fa-solid fa-pen-to-square"></i>
+    </button>
+    <button class="tab-button" onclick="openTab(event, 'ranking')" title="Ranking">
+        <i class="fa-solid fa-trophy"></i>
+    </button>
+    <button class="tab-button" onclick="openTab(event, 'regras')" title="Regras">
+        <i class="fa-solid fa-circle-info"></i>
+    </button>
+    <button class="tab-button" onclick="openTab(event, 'conta')" title="Minha Conta">
+        <i class="fa-solid fa-user-gear"></i>
+    </button>
+    
+    <button class="logout-btn" onclick="handleLogout()" title="Sair">
+        <i class="fa-solid fa-right-from-bracket"></i>
+    </button>
+</nav>
+
+<div class="container">
+    <header>
+        <h1>Bolão da Copa do Mundo</h1>
+        <div style="color: var(--accent-color); font-weight: bold;">EUA/MÉXICO/CANADÁ 2026</div>
+    </header>
+
+    <div id="palpites" class="tab-content active">
+        <div id="match-list">Carregando jogos...</div>
+    </div>
+
+    <div id="ranking" class="tab-content">
+        <div class="ranking-card">
+            <table class="ranking-table">
+                <thead>
+                    <tr><th class="pos">Posição</th><th>Participante</th><th class="points">Pontos</th></tr>
+                </thead>
+                <tbody id="ranking-body">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="regras" class="tab-content">
+        <div class="rules-container">
+            <div class="rule-item">
+                <span class="rule-text">🎯 Acertar o placar exato</span>
+                <span class="rule-points">3 PONTOS</span>
+            </div>
+            <div class="rule-item" style="border-left-color: var(--primary-color);">
+                <span class="rule-text">✅ Acertar apenas o vencedor / empate</span>
+                <span class="rule-points">1 PONTO</span>
+            </div>
+            <div class="rule-item" style="border-left-color: #ddd;">
+                <span class="rule-text">❌ Não acertar o resultado</span>
+                <span class="rule-points">0 PONTO</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="conta" class="tab-content">
+        <div class="account-card">
+            <h2 style="margin-top:0; color: var(--primary-color);">Perfil</h2>
+            
+            <div class="form-group">
+                <label>Nome de Usuário Atual</label>
+                <input type="text" id="current-username" readonly 
+                       style="background-color: #f0f0f0; cursor: not-allowed; border-color: #ccc; color: #666;">
+            </div>
+
+            <div class="form-group">
+                <label>Novo Nome (Exibição)</label>
+                <input type="text" placeholder="Alterar meu nome">
+            </div>
+            
+            <div class="form-group">
+                <label>Nova Senha</label>
+                <input type="password" placeholder="••••••••">
+            </div>
+            
+            <button class="save-btn" onclick="alert('Perfil atualizado!')">Salvar Alterações</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    function openTab(evt, tabName) {
+        let contents = document.getElementsByClassName("tab-content");
+        for (let content of contents) content.classList.remove("active");
+        let buttons = document.getElementsByClassName("tab-button");
+        for (let button of buttons) button.classList.remove("active");
+        document.getElementById(tabName).classList.add("active");
+        evt.currentTarget.classList.add("active");
+    }
+
+    // Carregar Jogos
+    const USUARIO_LOGADO_ID = 1; 
+    async function loadMatches() {
+      const container = document.getElementById('match-list');
+      try {
+          const [resMatches, resGuesses] = await Promise.all([
+              fetch('matches.json'),
+              fetch('guesses.json')
+          ]);
+
+          const matches = await resMatches.json();
+          const allGuesses = await resGuesses.json();
+          
+          const meusPalpites = allGuesses.filter(g => g.user_id === USUARIO_LOGADO_ID);
+          const agora = new Date();
+          container.innerHTML = '';
+
+          matches.forEach(match => {
+              const palpite = meusPalpites.find(g => g.match_id === match.match_id);
+              const s1 = palpite ? palpite.score_1 : "";
+              const s2 = palpite ? palpite.score_2 : "";
+
+              // 1. Criamos o objeto Date
+              const dataObjeto = new Date(match.kickoff.replace(/-/g, "/"));
+              
+              // 2. Formatamos para o padrão brasileiro
+              const dataFormatada = dataObjeto.toLocaleString('pt-BR', {
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+              });
+
+              const bloqueado = (dataObjeto - agora) < (60 * 60 * 1000);
+
+              const card = document.createElement('div');
+              card.innerHTML = `
+                  <div class="match-header">
+                      <span>📅 ${dataFormatada} ${bloqueado ? '<strong>(Bloqueado)</strong>' : ''}</span>
+                      <div style="display: flex; align-items: center; gap: 10px;">
+                          <span>📍 ${match.location}</span>
+                          <button class="spy-btn" onclick="openSpyModal(${match.match_id}, '${match.team_1} x ${match.team_2}')" title="Ver palpites">
+                              <i class="fa-solid fa-eye"></i>
+                          </button>
+                      </div>
+                  </div>
+                  <div class="match-body" ${bloqueado ? 'style="opacity: 0.6;"' : ''}>
+                      <div class="team">${match.team_1}</div>
+                      
+                      <div class="score-container">
+                          <input type="number" class="score-input" value="${s1}" 
+                                 ${bloqueado ? 'disabled' : ''} 
+                                 onchange="saveGuess(${match.match_id}, this, 'score_1')">
+                          <span style="font-weight:bold; color:#ccc">X</span>
+                          <input type="number" class="score-input" value="${s2}" 
+                                 ${bloqueado ? 'disabled' : ''} 
+                                 onchange="saveGuess(${match.match_id}, this, 'score_2')">
+                      </div>
+
+                      <div class="team">${match.team_2}</div>
+                  </div>`;
+              container.appendChild(card);
+          });
+      } catch (e) { 
+          console.error("Erro ao carregar dados:", e);
+      }
+  }
+
+    // Carregar Ranking
+    async function loadRanking() {
+        const body = document.getElementById('ranking-body');
+        try {
+            const response = await fetch('users.json');
+            if (!response.ok) throw new Error('Erro ao carregar users.json');
+            const ranking = await response.json();
+            
+            // Ordenar por pontos (decrescente)
+            ranking.sort((a, b) => b.points - a.points);
+            
+            body.innerHTML = '';
+            ranking.forEach((user, index) => {
+                const tr = document.createElement('tr');
+                let posLabel = (index + 1) + 'º';
+                if (index === 0) posLabel = '🥇';
+                if (index === 1) posLabel = '🥈';
+                if (index === 2) posLabel = '🥉';
+
+                tr.innerHTML = `
+                    <td class="pos">${posLabel}</td>
+                    <td>${user.name}</td>
+                    <td class="points">${user.points}</td>
+                `;
+                body.appendChild(tr);
+            });
+        } catch (error) { body.innerHTML = `<tr><td colspan="3" style="color:red; text-align:center;">${error.message}</td></tr>`; }
+    }
+    
+    // Processar logout
+    function handleLogout() {
+      if (confirm("Deseja realmente sair do sistema?")) {
+          // Aqui você removeria tokens de sessão ou cookies no futuro
+          console.log("Usuário " + USUARIO_LOGADO_ID + " deslogado.");
+          
+          // Simulação de redirecionamento
+          alert("Sessão encerrada com sucesso!");
+          window.location.reload(); // Recarrega a página para simular reset
+      }
+    }
+    
+    // Função para carregar dados do perfil
+    async function loadUserProfile() {
+        try {
+            const response = await fetch('users.json');
+            const users = await response.json();
+            
+            // Encontra o usuário logado
+            const usuarioAtivo = users.find(u => u.user_id === USUARIO_LOGADO_ID);
+            
+            if (usuarioAtivo) {
+                document.getElementById('current-username').value = usuarioAtivo.name;
+            }
+        } catch (e) {
+            console.error("Erro ao carregar perfil:", e);
+        }
+    }
+    
+    async function openSpyModal(matchId, matchName) {
+        const modal = document.getElementById('guessModal');
+        const body = document.getElementById('modal-body');
+        const title = document.getElementById('modal-title');
+        
+        title.innerText = matchName;
+        body.innerHTML = "Carregando palpites...";
+        modal.style.display = "block";
+
+        try {
+            const [resUsers, resGuesses] = await Promise.all([
+                fetch('users.json'),
+                fetch('guesses.json')
+            ]);
+
+            const users = await resUsers.json();
+            const guesses = await resGuesses.json();
+
+            // Filtra todos os palpites para ESTE jogo
+            const palpitesDoJogo = guesses.filter(g => g.match_id === matchId);
+
+            if (palpitesDoJogo.length === 0) {
+                body.innerHTML = "<p style='text-align:center; color:#888;'>Ninguém palpitou ainda.</p>";
+                return;
+            }
+
+            body.innerHTML = "";
+            palpitesDoJogo.forEach(p => {
+                const user = users.find(u => u.user_id === p.user_id);
+                const userName = user ? user.name : "Usuário Desconhecido";
+                
+                const div = document.createElement('div');
+                div.className = 'guess-item';
+                div.innerHTML = `
+                    <span style="font-weight:500;">${userName}</span>
+                    <span style="font-weight:bold; color:var(--primary-color);">${p.score_1} x ${p.score_2}</span>
+                `;
+                body.appendChild(div);
+            });
+
+        } catch (e) {
+            body.innerHTML = "Erro ao carregar palpites.";
+            console.error(e);
+        }
+    }
+
+    function closeModal() {
+        document.getElementById('guessModal').style.display = "none";
+    }
+
+    // Fecha o modal se clicar fora dele
+    window.onclick = function(event) {
+        const modal = document.getElementById('guessModal');
+        if (event.target == modal) closeModal();
+    }
+
+    // Inicialização
+    loadMatches();
+    loadRanking();
+    loadUserProfile();
+</script>
+
+    <div id="guessModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeModal()">&times;</span>
+            <h3 id="modal-title" style="color: var(--primary-color); margin-bottom: 20px;">Palpites da Galera</h3>
+            <div id="modal-body">
+                </div>
+        </div>
+    </div>
+</body>
+</html>
