@@ -360,6 +360,30 @@
 </div>
 
 <script>
+
+    // Função centralizada de cálculo de regras
+    function calculatePoints(guess, match) {
+        // Se o jogo ainda não tem resultado oficial, 0 pontos
+        if (match.score_1 === undefined || match.score_1 === null) return 0;
+
+        const g1 = parseInt(guess.score_1);
+        const g2 = parseInt(guess.score_2);
+        const r1 = parseInt(match.score_1);
+        const r2 = parseInt(match.score_2);
+
+        // Regra 1: Acerto do placar exato (3 pontos)
+        if (g1 === r1 && g2 === r2) return 3;
+
+        // Regra 2: Acerto de quem venceu ou empate (1 ponto)
+        const vencedorPalpite = g1 > g2 ? 1 : (g1 < g2 ? 2 : 0);
+        const vencedorReal = r1 > r2 ? 1 : (r1 < r2 ? 2 : 0);
+
+        if (vencedorPalpite === vencedorReal) return 1;
+
+        // Regra 3: Erro total
+        return 0;
+    }
+
     function openTab(evt, tabName) {
         let contents = document.getElementsByClassName("tab-content");
         for (let content of contents) content.classList.remove("active");
@@ -442,21 +466,44 @@
     async function loadRanking() {
         const body = document.getElementById('ranking-body');
         try {
-            const response = await fetch('users.json');
-            if (!response.ok) throw new Error('Erro ao carregar users.json');
-            const ranking = await response.json();
-            
-            // Ordenar por pontos (decrescente)
-            ranking.sort((a, b) => b.points - a.points);
-            
+            const [resUsers, resMatches, resGuesses] = await Promise.all([
+                fetch('users.json'),
+                fetch('matches.json'),
+                fetch('guesses.json')
+            ]);
+
+            const users = await resUsers.json();
+            const matches = await resMatches.json();
+            const guesses = await resGuesses.json();
+
+            // Mapeia os usuários e calcula os pontos dinamicamente
+            const rankingData = users.map(user => {
+                let totalPoints = 0;
+                
+                // Filtra palpites deste usuário
+                const userGuesses = guesses.filter(g => g.user_id === user.user_id);
+                
+                userGuesses.forEach(guess => {
+                    const match = matches.find(m => m.match_id === guess.match_id);
+                    if (match) {
+                        totalPoints += calculatePoints(guess, match);
+                    }
+                });
+
+                return { name: user.name, points: totalPoints };
+            });
+
+            // Ordena por pontos (decrescente)
+            rankingData.sort((a, b) => b.points - a.points);
+
             body.innerHTML = '';
-            ranking.forEach((user, index) => {
-                const tr = document.createElement('tr');
+            rankingData.forEach((user, index) => {
                 let posLabel = (index + 1) + 'º';
                 if (index === 0) posLabel = '🥇';
                 if (index === 1) posLabel = '🥈';
                 if (index === 2) posLabel = '🥉';
 
+                const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td class="pos">${posLabel}</td>
                     <td>${user.name}</td>
@@ -464,9 +511,12 @@
                 `;
                 body.appendChild(tr);
             });
-        } catch (error) { body.innerHTML = `<tr><td colspan="3" style="color:red; text-align:center;">${error.message}</td></tr>`; }
+        } catch (e) {
+            body.innerHTML = "Erro ao processar ranking.";
+            console.error(e);
+        }
     }
-    
+        
     // Processar logout
     function handleLogout() {
       if (confirm("Deseja realmente sair do sistema?")) {
