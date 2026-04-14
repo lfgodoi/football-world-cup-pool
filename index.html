@@ -360,28 +360,28 @@
 </div>
 
 <script>
+    // 1. CONFIGURAÇÕES GLOBAIS E AUTENTICAÇÃO
+// 1. Verificação de Autenticação com Debug
+    const rawId = localStorage.getItem('user_id');
+    console.log("Tentando ler ID do localStorage:", rawId);
 
-    // Função centralizada de cálculo de regras
-    function calculatePoints(guess, match) {
-        // Se o jogo ainda não tem resultado oficial, 0 pontos
-        if (match.score_1 === undefined || match.score_1 === null) return 0;
+    if (!rawId || rawId === "undefined" || rawId === "null") {
+        console.log("ID inválido ou ausente. Redirecionando para login...");
+        window.location.href = 'login.html';
+    } else {
+        console.log("Acesso permitido para o ID:", rawId);
+    }
 
-        const g1 = parseInt(guess.score_1);
-        const g2 = parseInt(guess.score_2);
-        const r1 = parseInt(match.score_1);
-        const r2 = parseInt(match.score_2);
+    // Configurações Globais (DEFINIR APENAS UMA VEZ)
+    const API_URL = "http://127.0.0.1:8000";
+    const USUARIO_LOGADO_ID = parseInt(rawId);
 
-        // Regra 1: Acerto do placar exato (3 pontos)
-        if (g1 === r1 && g2 === r2) return 3;
-
-        // Regra 2: Acerto de quem venceu ou empate (1 ponto)
-        const vencedorPalpite = g1 > g2 ? 1 : (g1 < g2 ? 2 : 0);
-        const vencedorReal = r1 > r2 ? 1 : (r1 < r2 ? 2 : 0);
-
-        if (vencedorPalpite === vencedorReal) return 1;
-
-        // Regra 3: Erro total
-        return 0;
+    // 2. FUNÇÕES DE NAVEGAÇÃO E UI
+    function handleLogout() {
+        if (confirm("Deseja realmente sair?")) {
+            localStorage.clear(); 
+            window.location.href = 'login.html';
+        }
     }
 
     function openTab(evt, tabName) {
@@ -393,109 +393,86 @@
         evt.currentTarget.classList.add("active");
     }
 
-    // Carregar Jogos
-    const USUARIO_LOGADO_ID = 1; 
+    function closeModal() {
+        document.getElementById('guessModal').style.display = "none";
+    }
+
+    window.onclick = function(event) {
+        const modal = document.getElementById('guessModal');
+        if (event.target == modal) closeModal();
+    }
+
+    // 3. CARREGAMENTO DE DADOS (API)
     async function loadMatches() {
-      const container = document.getElementById('match-list');
-      try {
-          const [resMatches, resGuesses] = await Promise.all([
-              fetch('matches.json'),
-              fetch('guesses.json')
-          ]);
+        const container = document.getElementById('match-list');
+        try {
+            const [resMatches, resGuesses] = await Promise.all([
+                fetch(`${API_URL}/matches`),
+                fetch(`${API_URL}/guesses/${USUARIO_LOGADO_ID}`)
+            ]);
 
-          const matches = await resMatches.json();
-          const allGuesses = await resGuesses.json();
-          
-          const meusPalpites = allGuesses.filter(g => g.user_id === USUARIO_LOGADO_ID);
-          const agora = new Date();
-          container.innerHTML = '';
+            if (!resMatches.ok || !resGuesses.ok) throw new Error("Erro no servidor");
 
-          matches.forEach(match => {
-              const palpite = meusPalpites.find(g => g.match_id === match.match_id);
-              const s1 = palpite ? palpite.score_1 : "";
-              const s2 = palpite ? palpite.score_2 : "";
+            const matches = await resMatches.json();
+            const meusPalpites = await resGuesses.json(); 
+            
+            const agora = new Date();
+            container.innerHTML = '';
 
-              // 1. Criamos o objeto Date
-              const dataObjeto = new Date(match.kickoff.replace(/-/g, "/"));
-              
-              // 2. Formatamos para o padrão brasileiro
-              const dataFormatada = dataObjeto.toLocaleString('pt-BR', {
-                  day: '2-digit',
-                  month: '2-digit',
-                  year: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit'
-              });
+            matches.forEach(match => {
+                const palpite = meusPalpites.find(g => g.match_id === match.match_id);
+                const s1 = palpite ? palpite.score_1 : "";
+                const s2 = palpite ? palpite.score_2 : "";
 
-              const bloqueado = (dataObjeto - agora) < (60 * 60 * 1000);
+                // Ajuste de data para o padrão BR
+                const dataObjeto = new Date(match.kickoff.replace(/-/g, "/"));
+                const dataFormatada = dataObjeto.toLocaleString('pt-BR', {
+                    day: '2-digit', month: '2-digit', year: 'numeric',
+                    hour: '2-digit', minute: '2-digit'
+                });
 
-              const card = document.createElement('div');
-              card.innerHTML = `
-                  <div class="match-header">
-                      <span>📅 ${dataFormatada} ${bloqueado ? '<strong>(Bloqueado)</strong>' : ''}</span>
-                      <div style="display: flex; align-items: center; gap: 10px;">
-                          <span>📍 ${match.location}</span>
-                          <button class="spy-btn" onclick="openSpyModal(${match.match_id}, '${match.team_1} x ${match.team_2}')" title="Ver palpites">
-                              <i class="fa-solid fa-eye"></i>
-                          </button>
-                      </div>
-                  </div>
-                  <div class="match-body" ${bloqueado ? 'style="opacity: 0.6;"' : ''}>
-                      <div class="team">${match.team_1}</div>
-                      
-                      <div class="score-container">
-                          <input type="number" class="score-input" value="${s1}" 
-                                 ${bloqueado ? 'disabled' : ''} 
-                                 onchange="saveGuess(${match.match_id}, this, 'score_1')">
-                          <span style="font-weight:bold; color:#ccc">X</span>
-                          <input type="number" class="score-input" value="${s2}" 
-                                 ${bloqueado ? 'disabled' : ''} 
-                                 onchange="saveGuess(${match.match_id}, this, 'score_2')">
-                      </div>
+                // Bloqueia 1 hora antes do início
+                const bloqueado = (dataObjeto - agora) < (60 * 60 * 1000);
 
-                      <div class="team">${match.team_2}</div>
-                  </div>`;
-              container.appendChild(card);
-          });
-      } catch (e) { 
-          console.error("Erro ao carregar dados:", e);
-      }
-  }
+                const card = document.createElement('div');
+                card.className = 'match-card';
+                card.innerHTML = `
+                    <div class="match-header">
+                        <span>📅 ${dataFormatada} ${bloqueado ? '<strong>(Bloqueado)</strong>' : ''}</span>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span>📍 ${match.location}</span>
+                            <button class="spy-btn" onclick="openSpyModal(${match.match_id}, '${match.team_1} x ${match.team_2}')" title="Ver palpites">
+                                <i class="fa-solid fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="match-body" ${bloqueado ? 'style="opacity: 0.6;"' : ''}>
+                        <div class="team">${match.team_1}</div>
+                        <div class="score-container">
+                            <input type="number" class="score-input" value="${s1}" 
+                                ${bloqueado ? 'disabled' : ''} 
+                                onchange="saveGuess(${match.match_id}, this)">
+                            <span style="font-weight:bold; color:#ccc">X</span>
+                            <input type="number" class="score-input" value="${s2}" 
+                                ${bloqueado ? 'disabled' : ''} 
+                                onchange="saveGuess(${match.match_id}, this)">
+                        </div>
+                        <div class="team">${match.team_2}</div>
+                    </div>`;
+                container.appendChild(card);
+            });
+        } catch (e) { 
+            console.error(e);
+            container.innerHTML = "<p style='color:red; text-align:center;'>Erro ao conectar com o servidor.</p>";
+        }
+    }
 
-    // Carregar Ranking
     async function loadRanking() {
         const body = document.getElementById('ranking-body');
         try {
-            const [resUsers, resMatches, resGuesses] = await Promise.all([
-                fetch('users.json'),
-                fetch('matches.json'),
-                fetch('guesses.json')
-            ]);
-
-            const users = await resUsers.json();
-            const matches = await resMatches.json();
-            const guesses = await resGuesses.json();
-
-            // Mapeia os usuários e calcula os pontos dinamicamente
-            const rankingData = users.map(user => {
-                let totalPoints = 0;
-                
-                // Filtra palpites deste usuário
-                const userGuesses = guesses.filter(g => g.user_id === user.user_id);
-                
-                userGuesses.forEach(guess => {
-                    const match = matches.find(m => m.match_id === guess.match_id);
-                    if (match) {
-                        totalPoints += calculatePoints(guess, match);
-                    }
-                });
-
-                return { name: user.name, points: totalPoints };
-            });
-
-            // Ordena por pontos (decrescente)
-            rankingData.sort((a, b) => b.points - a.points);
-
+            const response = await fetch(`${API_URL}/ranking`);
+            const rankingData = await response.json();
+            
             body.innerHTML = '';
             rankingData.forEach((user, index) => {
                 let posLabel = (index + 1) + 'º';
@@ -512,100 +489,74 @@
                 body.appendChild(tr);
             });
         } catch (e) {
-            body.innerHTML = "Erro ao processar ranking.";
-            console.error(e);
+            body.innerHTML = "<tr><td colspan='3'>Erro ao carregar ranking</td></tr>";
         }
-    }
-        
-    // Processar logout
-    function handleLogout() {
-      if (confirm("Deseja realmente sair do sistema?")) {
-          // Aqui você removeria tokens de sessão ou cookies no futuro
-          console.log("Usuário " + USUARIO_LOGADO_ID + " deslogado.");
-          
-          // Simulação de redirecionamento
-          alert("Sessão encerrada com sucesso!");
-          window.location.reload(); // Recarrega a página para simular reset
-      }
     }
     
-    // Função para carregar dados do perfil
     async function loadUserProfile() {
         try {
-            const response = await fetch('users.json');
-            const users = await response.json();
-            
-            // Encontra o usuário logado
-            const usuarioAtivo = users.find(u => u.user_id === USUARIO_LOGADO_ID);
-            
-            if (usuarioAtivo) {
-                document.getElementById('current-username').value = usuarioAtivo.name;
+            const response = await fetch(`${API_URL}/users/${USUARIO_LOGADO_ID}`);
+            const userData = await response.json();
+            if (userData && userData.name) {
+                document.getElementById('current-username').value = userData.name;
             }
-        } catch (e) {
-            console.error("Erro ao carregar perfil:", e);
-        }
+        } catch (e) { console.error(e); }
     }
     
     async function openSpyModal(matchId, matchName) {
         const modal = document.getElementById('guessModal');
         const body = document.getElementById('modal-body');
-        const title = document.getElementById('modal-title');
-        
-        title.innerText = matchName;
-        body.innerHTML = "Carregando palpites...";
+        document.getElementById('modal-title').innerText = matchName;
+        body.innerHTML = "Carregando...";
         modal.style.display = "block";
 
         try {
-            const [resUsers, resGuesses] = await Promise.all([
-                fetch('users.json'),
-                fetch('guesses.json')
-            ]);
+            const response = await fetch(`${API_URL}/matches/${matchId}/guesses`);
+            const palpites = await response.json();
 
-            const users = await resUsers.json();
-            const guesses = await resGuesses.json();
-
-            // Filtra todos os palpites para ESTE jogo
-            const palpitesDoJogo = guesses.filter(g => g.match_id === matchId);
-
-            if (palpitesDoJogo.length === 0) {
-                body.innerHTML = "<p style='text-align:center; color:#888;'>Ninguém palpitou ainda.</p>";
+            if (palpites.length === 0) {
+                body.innerHTML = "<p style='text-align:center; color:#888;'>Ninguém palpitou.</p>";
                 return;
             }
 
-            body.innerHTML = "";
-            palpitesDoJogo.forEach(p => {
-                const user = users.find(u => u.user_id === p.user_id);
-                const userName = user ? user.name : "Usuário Desconhecido";
-                
-                const div = document.createElement('div');
-                div.className = 'guess-item';
-                div.innerHTML = `
-                    <span style="font-weight:500;">${userName}</span>
+            body.innerHTML = palpites.map(p => `
+                <div class="guess-item">
+                    <span>${p.user_name}</span>
                     <span style="font-weight:bold; color:var(--primary-color);">${p.score_1} x ${p.score_2}</span>
-                `;
-                body.appendChild(div);
+                </div>
+            `).join('');
+        } catch (e) { body.innerHTML = "Erro ao carregar."; }
+    }
+
+    async function saveGuess(matchId, inputElement) {
+        const card = inputElement.closest('.match-card');
+        const inputs = card.querySelectorAll('.score-input');
+        
+        const data = {
+            user_id: USUARIO_LOGADO_ID,
+            match_id: matchId,
+            score_1: parseInt(inputs[0].value),
+            score_2: parseInt(inputs[1].value)
+        };
+
+        if (isNaN(data.score_1) || isNaN(data.score_2)) return;
+
+        try {
+            await fetch(`${API_URL}/guesses`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
             });
-
-        } catch (e) {
-            body.innerHTML = "Erro ao carregar palpites.";
-            console.error(e);
-        }
+            console.log("Salvo!");
+        } catch (e) { console.error("Erro ao salvar:", e); }
     }
 
-    function closeModal() {
-        document.getElementById('guessModal').style.display = "none";
-    }
-
-    // Fecha o modal se clicar fora dele
-    window.onclick = function(event) {
-        const modal = document.getElementById('guessModal');
-        if (event.target == modal) closeModal();
-    }
-
-    // Inicialização
-    loadMatches();
-    loadRanking();
-    loadUserProfile();
+    // 4. INICIALIZAÇÃO
+    window.onload = () => {
+        loadMatches();
+        loadRanking();
+        loadUserProfile();
+    };
 </script>
 
     <div id="guessModal" class="modal">

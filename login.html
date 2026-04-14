@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Login - Bolão Copa 2026</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f4f7f6; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .login-card { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 350px; text-align: center; }
+        h2 { color: #2c3e50; margin-bottom: 30px; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; background: #27ae60; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold; }
+        button:hover { background: #219150; }
+        .error { color: red; font-size: 14px; margin-top: 10px; display: none; }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <h2>🏆 Bolão 2026</h2>
+        <input type="text" id="username" placeholder="Usuário">
+        <input type="password" id="password" placeholder="Senha">
+        <button onclick="doLogin()">Entrar</button>
+        <p id="error-msg" class="error">Usuário ou senha inválidos!</p>
+    </div>
+
+    <script>
+        async function doLogin() {
+    const user = document.getElementById('username').value;
+    const pass = document.getElementById('password').value;
+    
+    try {
+        const response = await fetch('http://127.0.0.1:8000/login', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ username: user, password: pass })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.user_id) {
+            // SALVAMENTO CRÍTICO
+            localStorage.setItem('user_id', String(data.user_id));
+            localStorage.setItem('user_name', data.name);
+            
+            console.log("Login OK, redirecionando...");
+            
+            // Tente usar o caminho completo ou relativo
+            window.location.href = "./index.html"; 
+        } else {
+            alert(data.detail || "Usuário ou senha incorretos");
+        }
+    } catch (e) {
+        console.error(e);
+        alert("Erro ao conectar no servidor!");
+    }
+}
+    </script>
+</body>
+</html>
