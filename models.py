@@ -6,6 +6,8 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True)
     password = Column(String)
+    security_question = Column(String)
+    security_answer = Column(String)
 
 class Match(Base):
     __tablename__ = "matches"

@@ -160,3 +160,50 @@ def login(data: dict, db: Session = Depends(get_db)):
     if user:
         return {"user_id": user.id, "name": user.name}
     raise HTTPException(status_code=401, detail="Invalid credentials")
+
+@app.post("/register")
+def register(data: dict, db: Session = Depends(get_db)):
+    # 1. Extração dos dados
+    username = data.get("name")
+    password = data.get("password")
+    question = data.get("security_question")
+    answer = data.get("security_answer")
+
+    # 2. Validação básica (evita salvar campos vazios no banco)
+    if not all([username, password, question, answer]):
+        raise HTTPException(
+            status_code=400, 
+            detail="Todos os campos são obrigatórios (nome, senha, pergunta e resposta)."
+        )
+
+    # 3. Verifica se o nome já existe (case-insensitive para evitar 'Admin' e 'admin')
+    existing_user = db.query(models.User).filter(models.User.name == username).first()
+    if existing_user:
+        raise HTTPException(
+            status_code=400, 
+            detail="Este nome de usuário já está em uso."
+        )
+
+    # 4. Criação do novo usuário
+    new_user = models.User(
+        name=username,
+        password=password,
+        security_question=question,
+        security_answer=answer
+    )
+    
+    try:
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+        return {
+            "status": "success", 
+            "message": "Usuário criado com sucesso",
+            "user_id": new_user.id
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500, 
+            detail="Erro interno ao salvar no banco de dados."
+        )

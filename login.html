@@ -2,57 +2,169 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Login - Bolão Copa 2026</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acesso - Bolão Copa 2026</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #f4f7f6; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .login-card { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 350px; text-align: center; }
-        h2 { color: #2c3e50; margin-bottom: 30px; }
-        input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
-        button { width: 100%; padding: 12px; background: #27ae60; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .auth-card { background: white; padding: 40px; border-radius: 16px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); width: 350px; text-align: center; transition: all 0.3s ease; }
+        h2 { color: #1a2a3a; margin-bottom: 25px; font-weight: 700; }
+        input { width: 100%; padding: 14px; margin: 8px 0; border: 1px solid #e0e0e0; border-radius: 8px; box-sizing: border-box; font-size: 14px; transition: border 0.3s; }
+        input:focus { border-color: #27ae60; outline: none; }
+        
+select {
+    width: 100%;
+    padding: 14px;
+    margin: 8px 0;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    background: white;
+    font-size: 14px;
+    color: #333;
+}
+#register-fields { 
+    max-height: 0; 
+    overflow: hidden; 
+    transition: max-height 0.5s ease-in-out; 
+}
+#register-fields.active { 
+    max-height: 200px; /* Aumentado para caber o select e o input */
+}
+
+        button { width: 100%; padding: 14px; background: #27ae60; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: bold; margin-top: 15px; transition: background 0.3s; }
         button:hover { background: #219150; }
-        .error { color: red; font-size: 14px; margin-top: 10px; display: none; }
+        
+        .toggle-text { margin-top: 20px; font-size: 14px; color: #666; }
+        .toggle-text a { color: #27ae60; text-decoration: none; font-weight: bold; }
+        .toggle-text a:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
-    <div class="login-card">
-        <h2>🏆 Bolão 2026</h2>
-        <input type="text" id="username" placeholder="Usuário">
+    <div class="auth-card">
+        <h2 id="auth-title">🏆 Bolão 2026</h2>
+        
+        <input type="text" id="username" placeholder="Nome de Usuário">
         <input type="password" id="password" placeholder="Senha">
-        <button onclick="doLogin()">Entrar</button>
-        <p id="error-msg" class="error">Usuário ou senha inválidos!</p>
+        
+<div id="register-fields">
+    <select id="security_question">
+        <option value="" disabled selected>Escolha uma pergunta de segurança</option>
+        <option value="Nome do seu primeiro pet?">Nome do seu primeiro pet?</option>
+        <option value="Cidade onde seus pais se conheceram?">Cidade onde seus pais se conheceram?</option>
+        <option value="Nome da sua primeira escola?">Nome da sua primeira escola?</option>
+        <option value="Sua comida favorita na infância?">Sua comida favorita na infância?</option>
+        <option value="Modelo do seu primeiro carro?">Modelo do seu primeiro carro?</option>
+    </select>
+    <input type="text" id="security_answer" placeholder="Sua resposta">
+</div>
+
+        <button id="auth-btn" onclick="handleAuth()">Entrar</button>
+        
+        <p class="toggle-text">
+            <span id="toggle-msg">Não tem uma conta?</span> 
+            <a href="javascript:void(0)" id="toggle-link" onclick="toggleMode()">Criar conta</a>
+        </p>
     </div>
 
-    <script>
-        async function doLogin() {
-    const user = document.getElementById('username').value;
-    const pass = document.getElementById('password').value;
-    
-    try {
-        const response = await fetch('http://127.0.0.1:8000/login', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ username: user, password: pass })
-        });
+<script>
+        const API_URL = 'http://127.0.0.1:8000';
+        let isRegisterMode = false;
 
-        const data = await response.json();
+        function toggleMode() {
+            isRegisterMode = !isRegisterMode;
+            const title = document.getElementById('auth-title');
+            const btn = document.getElementById('auth-btn');
+            const link = document.getElementById('toggle-link');
+            const msg = document.getElementById('toggle-msg');
+            const regFields = document.getElementById('register-fields');
 
-        if (response.ok && data.user_id) {
-            // SALVAMENTO CRÍTICO
-            localStorage.setItem('user_id', String(data.user_id));
-            localStorage.setItem('user_name', data.name);
-            
-            console.log("Login OK, redirecionando...");
-            
-            // Tente usar o caminho completo ou relativo
-            window.location.href = "./index.html"; 
-        } else {
-            alert(data.detail || "Usuário ou senha incorretos");
+            if (isRegisterMode) {
+                title.innerText = "Novo Cadastro";
+                btn.innerText = "Finalizar Cadastro";
+                msg.innerText = "Já é cadastrado?";
+                link.innerText = "Fazer Login";
+                regFields.classList.add('active');
+            } else {
+                title.innerText = "🏆 Bolão 2026";
+                btn.innerText = "Entrar";
+                msg.innerText = "Não tem uma conta?";
+                link.innerText = "Criar conta";
+                regFields.classList.remove('active');
+            }
         }
-    } catch (e) {
-        console.error(e);
-        alert("Erro ao conectar no servidor!");
-    }
-}
+
+        async function handleAuth() {
+            const user = document.getElementById('username').value;
+            const pass = document.getElementById('password').value;
+            
+            // Campos de segurança
+            const question = document.getElementById('security_question').value;
+            const answer = document.getElementById('security_answer') ? document.getElementById('security_answer').value : "";
+
+            if (!user || !pass) return alert("Preencha usuário e senha!");
+
+            if (isRegisterMode) {
+                if (!question || !answer) return alert("Escolha uma pergunta e digite a resposta de segurança!");
+                await doRegister(user, pass, question, answer);
+            } else {
+                await doLogin(user, pass);
+            }
+        }
+
+        async function doLogin(username, password) {
+            try {
+                const response = await fetch(`${API_URL}/login`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    const idParaSalvar = data.user_id || data.id;
+                    if (idParaSalvar) {
+                        localStorage.setItem('user_id', String(idParaSalvar));
+                        localStorage.setItem('user_name', data.name);
+                        console.log("Login OK, redirecionando...");
+                        window.location.href = "./index.html"; 
+                    }
+                } else {
+                    alert(data.detail || "Usuário ou senha inválidos");
+                }
+            } catch (e) {
+                console.error(e);
+                alert("Erro ao conectar no servidor!");
+            }
+        }
+
+        async function doRegister(name, password, security_question, security_answer) {
+            try {
+                const response = await fetch(`${API_URL}/register`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ 
+                        name, 
+                        password, 
+                        security_question, 
+                        security_answer 
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    alert("Conta criada com sucesso! Agora você já pode entrar.");
+                    toggleMode(); // Volta automaticamente para o modo de login
+                    // Limpa os campos de segurança para privacidade
+                    document.getElementById('security_answer').value = "";
+                } else {
+                    alert(data.detail || "Erro ao criar conta. Tente outro nome de usuário.");
+                }
+            } catch (e) {
+                console.error(e);
+                alert("Erro ao conectar no servidor!");
+            }
+        }
     </script>
 </body>
 </html>
