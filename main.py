@@ -1,7 +1,20 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import json
 import os
+from sqlalchemy.orm import Session
+import models
+import database
+
+# Create the tables
+models.Base.metadata.create_all(bind=database.engine)
+
+def get_db():
+    db = database.SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 app = FastAPI()
 
@@ -26,100 +39,124 @@ def write_json(filename, data):
 # --- ROTAS ---
 
 @app.get("/matches")
-def get_matches():
-    return read_json("matches.json")
+def get_matches(db: Session = Depends(get_db)):
+    matches = db.query(models.Match).all()
+    return matches
 
 @app.get("/guesses/{user_id}")
-def get_user_guesses(user_id: int):
-    all_guesses = read_json("guesses.json")
-    return [g for g in all_guesses if g['user_id'] == user_id]
-
-@app.post("/guesses")
-def save_guess(new_guess: dict):
-    guesses = read_json("guesses.json")
-    # Atualiza se já existir, senão adiciona
-    for g in guesses:
-        if g['user_id'] == new_guess['user_id'] and g['match_id'] == new_guess['match_id']:
-            g.update(new_guess)
-            write_json("guesses.json", guesses)
-            return {"status": "updated"}
+def get_user_guesses(user_id: int, db: Session = Depends(get_db)):
+    # Busca todos os palpites onde o campo user_id coincide com o parâmetro da URL
+    guesses = db.query(models.Guess).filter(models.Guess.user_id == user_id).all()
     
-    guesses.append(new_guess)
-    write_json("guesses.json", guesses)
-    return {"status": "created"}
+    # O FastAPI converte automaticamente a lista de objetos do banco para JSON
+    return guesses
+
+@app.post("/save_guess")
+def save_guess(data: dict, db: Session = Depends(get_db)):
+    user_id = data.get("user_id")
+    match_id = data.get("match_id")
+    
+    # Procura se já existe um palpite deste usuário para este jogo
+    guess = db.query(models.Guess).filter(
+        models.Guess.user_id == user_id,
+        models.Guess.match_id == match_id
+    ).first()
+
+    if guess:
+        # UPDATE: Se já existe, apenas atualiza os scores
+        guess.score_1 = data.get("score_1")
+        guess.score_2 = data.get("score_2")
+    else:
+        # INSERT: Se não existe, cria um novo registro
+        guess = models.Guess(
+            user_id=user_id,
+            match_id=match_id,
+            score_1=data.get("score_1"),
+            score_2=data.get("score_2")
+        )
+        db.add(guess)
+
+    db.commit()
+    return {"status": "success"}
+
+from sqlalchemy.orm import Session
+from fastapi import Depends
+import models
 
 @app.get("/ranking")
-def get_ranking():
-    users = read_json("users.json")
-    matches = read_json("matches.json")
-    guesses = read_json("guesses.json")
+def get_ranking(db: Session = Depends(get_db)):
+    # 1. Pegamos todos os usuários, jogos e palpites do banco
+    users = db.query(models.User).all()
+    matches = db.query(models.Match).all()
+    guesses = db.query(models.Guess).all()
+    
+    # Criamos um dicionário de matches para busca rápida por ID
+    # Isso evita o "next(m for m in matches...)" que é lento
+    matches_dict = {m.id: m for m in matches}
     
     ranking = []
+    
     for user in users:
         points = 0
-        user_guesses = [g for g in guesses if g['user_id'] == user['user_id']]
+        # Filtra palpites deste usuário específico
+        user_guesses = [g for g in guesses if g.user_id == user.id]
+        
         for g in user_guesses:
-            m = next((m for m in matches if m['match_id'] == g['match_id']), None)
-            if m and m.get('score_1') is not None:
-                # Lógica de pontos (mesma do JS, mas em Python)
-                if g['score_1'] == m['score_1'] and g['score_2'] == m['score_2']:
+            # Pega o jogo real do nosso dicionário
+            m = matches_dict.get(g.match_id)
+            
+            # Só calcula se o jogo já tiver resultado oficial (score_1 não é None)
+            if m and m.score_1 is not None:
+                # Placar exato = 3 pontos
+                if g.score_1 == m.score_1 and g.score_2 == m.score_2:
                     points += 3
-                elif (g['score_1'] > g['score_2']) == (m['score_1'] > m['score_2']) and \
-                     (g['score_1'] < g['score_2']) == (m['score_1'] < m['score_2']):
-                    points += 1
-        ranking.append({"name": user['name'], "points": points})
+                # Acertou o vencedor ou empate = 1 ponto
+                else:
+                    # Lógica de tendência (quem venceu ou se deu empate)
+                    g_tendencia = (g.score_1 > g.score_2) - (g.score_1 < g.score_2)
+                    m_tendencia = (m.score_1 > m.score_2) - (m.score_1 < m.score_2)
+                    
+                    if g_tendencia == m_tendencia:
+                        points += 1
+                        
+        ranking.append({"name": user.name, "points": points})
     
+    # Retorna ordenado do maior para o menor
     return sorted(ranking, key=lambda x: x['points'], reverse=True)
 
 
 @app.get("/matches/{match_id}/guesses")
-def get_match_guesses(match_id: int):
-    guesses = read_json("guesses.json")
-    users = read_json("users.json")
+def get_match_guesses(match_id: int, db: Session = Depends(get_db)):
+    # 1. Busca os palpites filtrando pelo ID do jogo
+    guesses = db.query(models.Guess).filter(models.Guess.match_id == match_id).all()
     
-    # Filtra palpites desse jogo e anexa o nome do usuário
     resultado = []
     for g in guesses:
-        if g['match_id'] == match_id:
-            user = next((u for u in users if u['user_id'] == g['user_id']), None)
-            resultado.append({
-                "user_name": user['name'] if user else "Desconhecido",
-                "score_1": g['score_1'],
-                "score_2": g['score_2']
-            })
+        # 2. Busca o nome do usuário que fez o palpite
+        user = db.query(models.User).filter(models.User.id == g.user_id).first()
+        resultado.append({
+            "user_name": user.name if user else "Anônimo",
+            "score_1": g.score_1,
+            "score_2": g.score_2
+        })
     return resultado
 
 @app.get("/users/{user_id}")
-def get_user(user_id: int):
-    users = read_json("users.json")
-    user = next((u for u in users if u['user_id'] == user_id), None)
+def get_user(user_id: int, db: Session = Depends(get_db)):
+    # Busca no Banco de Dados em vez do JSON
+    user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
-    # Retornamos apenas o que é necessário (segurança: não envie a senha aqui)
-    return {"user_id": user['user_id'], "name": user['name']}
-
-from fastapi import FastAPI, HTTPException, Body
+    return {"user_id": user.id, "name": user.name}
 
 @app.post("/login")
-async def login(data: dict = Body(...)):
-    # 1. Garante que os dados do JSON sejam lidos corretamente
-    users = read_json("users.json")
-    
-    # 2. Extrai os dados enviados pelo frontend
-    username_enviado = data.get('username')
-    password_enviado = data.get('password')
+def login(data: dict, db: Session = Depends(get_db)):
+    # Instead of reading JSON, we query the DB
+    user = db.query(models.User).filter(
+        models.User.name == data.get('username'),
+        models.User.password == data.get('password')
+    ).first()
 
-    # 3. Busca o usuário (Verifique se no seu users.json a chave é 'name' ou 'username')
-    user = next((u for u in users if u.get('name') == username_enviado and u.get('password') == password_enviado), None)
-    
     if user:
-        print(f"Login bem-sucedido para: {username_enviado}") # Log para você ver no terminal
-        return {
-            "status": "success", 
-            "user_id": user['user_id'], 
-            "name": user['name']
-        }
-    
-    # 4. Caso falhe, logamos o erro no terminal para debug
-    print(f"Tentativa de login falhou para: {username_enviado}")
-    raise HTTPException(status_code=401, detail="Usuário ou senha incorretos")
+        return {"user_id": user.id, "name": user.name}
+    raise HTTPException(status_code=401, detail="Invalid credentials")
