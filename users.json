@@ -1,4 +1,9 @@
 [
-  { "user_id": 1, "name": "cachorro", "password": "1234", "security_question": "Nome do seu primeiro pet?", "security_answer": "bilu" },
-  { "user_id": 2, "name": "carolina", "password": "1234", "security_question": "Cidade onde seus pais se conheceram?", "security_answer": "sp" }
+  { 
+    "user_id": 1, 
+    "name": "leothecreator", 
+    "password": "rewqfdsa", 
+    "security_question": "Nome do seu primeiro pet?", 
+    "security_answer": "Laurinha" 
+  }
 ]
