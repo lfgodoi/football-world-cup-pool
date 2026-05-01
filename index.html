@@ -143,6 +143,28 @@
         .form-group label { display: block; margin-bottom: 8px; font-weight: 600; color: var(--primary-color); }
         .form-group input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
         .save-btn { background-color: var(--primary-color); color: white; border: none; padding: 15px; width: 100%; border-radius: 6px; font-weight: bold; cursor: pointer; }
+        
+        /* --- GRUPOS --- */
+        .groups-container { padding: 10px; }
+        .group-section { background: white; padding: 20px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .group-section h3 { margin-top: 0; color: var(--primary-color); font-size: 18px; }
+        .group-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid #eee; }
+        .group-item:last-child { border-bottom: none; }
+        .group-item .group-name { font-weight: bold; color: var(--primary-color); }
+        .group-item .group-role { font-size: 12px; color: #666; background: #f0f0f0; padding: 4px 8px; border-radius: 4px; }
+        .group-actions { display: flex; gap: 8px; }
+        .group-btn { padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; }
+        .group-btn.join { background: var(--primary-color); color: white; }
+        .group-btn.leave { background: #e74c3c; color: white; }
+        .group-btn.delete { background: #c0392b; color: white; }
+        .group-btn.ranking { background: #3498db; color: white; }
+        .no-groups { color: #888; text-align: center; padding: 20px; }
+        
+        /* Group selector in ranking */
+        .group-selector { margin-bottom: 20px; text-align: center; }
+        .group-selector label { margin-right: 10px; font-weight: 600; color: var(--primary-color); }
+        .group-selector select { padding: 8px 12px; border-radius: 6px; border: 1px solid #ddd; font-size: 14px; background: white; }
+        .groups-section { margin-top: 30px; }
 
         @media (max-width: 768px) { #match-list { grid-template-columns: 1fr; } }
         
@@ -307,13 +329,42 @@
 
     <div id="ranking" class="tab-content">
         <div class="ranking-card">
+            <!-- Group selector -->
+            <div class="group-selector">
+                <label for="group-select">Filtrar por grupo:</label>
+                <select id="group-select" onchange="loadRanking()">
+                    <option value="">Geral (Todos os usuários)</option>
+                </select>
+            </div>
+            
             <table class="ranking-table">
                 <thead>
                     <tr><th class="pos">Posição</th><th>Participante</th><th class="points">Pontos</th></tr>
                 </thead>
                 <tbody id="ranking-body">
-                    </tbody>
+                </tbody>
             </table>
+        </div>
+        
+        <!-- Group management section -->
+        <div class="groups-section" style="margin-top: 20px;">
+            <div class="group-section">
+                <h3>Gerenciar Grupos</h3>
+                <div id="my-groups-list">Carregando...</div>
+            </div>
+            
+            <div class="group-section">
+                <h3>Grupos Disponíveis</h3>
+                <div id="available-groups-list">Carregando...</div>
+            </div>
+            
+            <div class="group-section" style="margin-top: 20px;">
+                <h3>Criar Novo Grupo</h3>
+                <div class="form-group">
+                    <input type="text" id="new-group-name" placeholder="Nome do grupo">
+                    <button class="save-btn" onclick="createGroup()">Criar Grupo</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -478,11 +529,27 @@ async function loadMatches() {
 
     async function loadRanking() {
         const body = document.getElementById('ranking-body');
+        const groupSelect = document.getElementById('group-select');
+        const selectedGroupId = groupSelect.value;
+        
         try {
-            const response = await fetch(`${API_URL}/ranking`);
-            const rankingData = await response.json();
+            let url = `${API_URL}/ranking`;
+            let rankingData;
+            
+            // If a group is selected, use group ranking
+            if (selectedGroupId) {
+                url = `${API_URL}/groups/${selectedGroupId}/ranking`;
+            }
+            
+            const response = await fetch(url);
+            rankingData = await response.json();
             
             body.innerHTML = '';
+            if (rankingData.length === 0) {
+                body.innerHTML = '<tr><td colspan="3" style="text-align:center;">Nenhum palpite encontrado</td></tr>';
+                return;
+            }
+            
             rankingData.forEach((user, index) => {
                 let posLabel = (index + 1) + 'º';
                 if (index === 0) posLabel = '🥇';
@@ -499,6 +566,28 @@ async function loadMatches() {
             });
         } catch (e) {
             body.innerHTML = "<tr><td colspan='3'>Erro ao carregar ranking</td></tr>";
+        }
+    }
+    
+    async function loadGroupSelector() {
+        const groupSelect = document.getElementById('group-select');
+        
+        try {
+            const response = await fetch(`${API_URL}/groups/user/${USUARIO_LOGADO_ID}`);
+            const groups = await response.json();
+            
+            // Keep the "Geral" option
+            groupSelect.innerHTML = '<option value="">Geral (Todos os usuários)</option>';
+            
+            // Add user's groups
+            groups.forEach(g => {
+                const option = document.createElement('option');
+                option.value = g.id;
+                option.textContent = g.name;
+                groupSelect.appendChild(option);
+            });
+        } catch (e) {
+            console.error('Error loading groups for selector:', e);
         }
     }
     
@@ -625,7 +714,170 @@ async function saveGuess(matchId, inputElement) {
         loadMatches();
         loadRanking();
         loadUserProfile();
+        loadGroupSelector();
+        loadGroups();
     };
+    
+    // ==================== GRUPOS ====================
+    
+    async function loadGroups() {
+        await loadMyGroups();
+        await loadAvailableGroups();
+    }
+    
+    async function loadMyGroups() {
+        const container = document.getElementById('my-groups-list');
+        try {
+            const response = await fetch(`${API_URL}/groups/user/${USUARIO_LOGADO_ID}`);
+            const groups = await response.json();
+            
+            if (groups.length === 0) {
+                container.innerHTML = '<p class="no-groups">Você não participa de nenhum grupo.</p>';
+                return;
+            }
+            
+            container.innerHTML = groups.map(g => `
+                <div class="group-item">
+                    <div>
+                        <span class="group-name">${g.name}</span>
+                        <span class="group-role">${g.role === 'admin' ? 'Admin' : 'Membro'}</span>
+                    </div>
+                    <div class="group-actions">
+                        ${g.role === 'admin' ? `<button class="group-btn delete" onclick="deleteGroup(${g.id})">🗑️ Excluir</button>` : `<button class="group-btn leave" onclick="leaveGroup(${g.id})">Sair</button>`}
+                    </div>
+                </div>
+            `).join('');
+        } catch (e) {
+            container.innerHTML = '<p class="no-groups">Erro ao carregar grupos.</p>';
+        }
+    }
+    
+    async function loadAvailableGroups() {
+        const container = document.getElementById('available-groups-list');
+        try {
+            // Busca todos os grupos
+            const allGroupsResponse = await fetch(`${API_URL}/groups`);
+            const allGroups = await allGroupsResponse.json();
+            
+            // Busca grupos que o usuário já participa
+            const myGroupsResponse = await fetch(`${API_URL}/groups/user/${USUARIO_LOGADO_ID}`);
+            const myGroups = await myGroupsResponse.json();
+            const myGroupIds = myGroups.map(g => g.id);
+            
+            // Filtra grupos que o usuário NÃO participa
+            const available = allGroups.filter(g => !myGroupIds.includes(g.id));
+            
+            if (available.length === 0) {
+                container.innerHTML = '<p class="no-groups">Não há grupos disponíveis para entrar.</p>';
+                return;
+            }
+            
+            container.innerHTML = available.map(g => `
+                <div class="group-item">
+                    <span class="group-name">${g.name}</span>
+                    <button class="group-btn join" onclick="joinGroup(${g.id})">Entrar</button>
+                </div>
+            `).join('');
+        } catch (e) {
+            container.innerHTML = '<p class="no-groups">Erro ao carregar grupos.</p>';
+        }
+    }
+    
+    async function createGroup() {
+        const name = document.getElementById('new-group-name').value;
+        if (!name) {
+            alert('Digite o nome do grupo!');
+            return;
+        }
+        
+        try {
+            const response = await fetch(`${API_URL}/groups`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ name, user_id: USUARIO_LOGADO_ID })
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                alert('Grupo criado com sucesso!');
+                document.getElementById('new-group-name').value = '';
+                loadGroups();
+            } else {
+                alert(data.detail || 'Erro ao criar grupo');
+            }
+        } catch (e) {
+            alert('Erro ao conectar no servidor!');
+        }
+    }
+    
+    async function joinGroup(groupId) {
+        try {
+            const response = await fetch(`${API_URL}/groups/${groupId}/join`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ user_id: USUARIO_LOGADO_ID })
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                alert(data.message);
+                loadGroups();
+            } else {
+                alert(data.detail || 'Erro ao entrar no grupo');
+            }
+        } catch (e) {
+            alert('Erro ao conectar no servidor!');
+        }
+    }
+    
+    async function leaveGroup(groupId) {
+        if (!confirm('Tem certeza que deseja sair deste grupo?')) return;
+        
+        try {
+            const response = await fetch(`${API_URL}/groups/${groupId}/leave`, {
+                method: 'DELETE',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ user_id: USUARIO_LOGADO_ID })
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                alert(data.message);
+                loadGroups();
+            } else {
+                alert(data.detail || 'Erro ao sair do grupo');
+            }
+        } catch (e) {
+            alert('Erro ao conectar no servidor!');
+        }
+    }
+    
+    async function deleteGroup(groupId) {
+        if (!confirm('Tem certeza que deseja excluir este grupo? Todos os membros serão removidos.')) return;
+        
+        try {
+            const response = await fetch(`${API_URL}/groups/${groupId}`, {
+                method: 'DELETE',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ user_id: USUARIO_LOGADO_ID })
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                alert(data.message);
+                loadGroups();
+                loadGroupSelector();
+            } else {
+                alert(data.detail || 'Erro ao excluir grupo');
+            }
+        } catch (e) {
+            alert('Erro ao conectar no servidor!');
+        }
+    }
 </script>
 
     <div id="guessModal" class="modal">

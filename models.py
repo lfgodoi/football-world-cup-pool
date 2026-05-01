@@ -1,5 +1,14 @@
-from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy import Column, Integer, String, ForeignKey, Table
 from database import Base
+
+# Association table for users in groups
+user_groups = Table(
+    'user_groups',
+    Base.metadata,
+    Column('user_id', Integer, ForeignKey('users.id'), primary_key=True),
+    Column('group_id', Integer, ForeignKey('groups.id'), primary_key=True),
+    Column('role', String, default='member')  # 'admin' or 'member'
+)
 
 class User(Base):
     __tablename__ = "users"
@@ -8,6 +17,13 @@ class User(Base):
     password = Column(String)
     security_question = Column(String)
     security_answer = Column(String)
+
+class Group(Base):
+    __tablename__ = "groups"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True)
+    created_by = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(String)  # Store as string for simplicity
 
 class Match(Base):
     __tablename__ = "matches"

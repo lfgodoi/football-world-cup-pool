@@ -301,3 +301,243 @@ def update_user(user_id: int, data: dict, db: Session = Depends(get_db)):
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail="Erro ao atualizar perfil")
+
+# ==================== GROUP ENDPOINTS ====================
+
+@app.post("/groups")
+def create_group(data: dict, db: Session = Depends(get_db)):
+    """Cria um novo grupo"""
+    name = data.get("name")
+    user_id = data.get("user_id")
+    
+    if not name or not user_id:
+        raise HTTPException(status_code=400, detail="Nome do grupo e ID do usuário são obrigatórios")
+    
+    # Verifica se o grupo já existe
+    existing = db.query(models.Group).filter(models.Group.name == name).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Este nome de grupo já está em uso")
+    
+    from datetime import datetime
+    new_group = models.Group(
+        name=name,
+        created_by=user_id,
+        created_at=datetime.now().isoformat()
+    )
+    
+    try:
+        db.add(new_group)
+        db.commit()
+        db.refresh(new_group)
+        
+        # Adiciona o criador como admin do grupo
+        db.execute(models.user_groups.insert().values(
+            user_id=user_id,
+            group_id=new_group.id,
+            role='admin'
+        ))
+        db.commit()
+        
+        return {
+            "status": "success",
+            "group_id": new_group.id,
+            "group_name": new_group.name
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Erro ao criar grupo")
+
+@app.get("/groups")
+def get_all_groups(db: Session = Depends(get_db)):
+    """Lista todos os grupos disponíveis"""
+    groups = db.query(models.Group).all()
+    return [{"id": g.id, "name": g.name} for g in groups]
+
+@app.get("/groups/user/{user_id}")
+def get_user_groups(user_id: int, db: Session = Depends(get_db)):
+    """Lista os grupos que o usuário participa"""
+    result = db.execute(
+        models.user_groups.select().where(models.user_groups.c.user_id == user_id)
+    ).fetchall()
+    
+    groups = []
+    for r in result:
+        group = db.query(models.Group).filter(models.Group.id == r.group_id).first()
+        if group:
+            groups.append({
+                "id": group.id,
+                "name": group.name,
+                "role": r.role,
+                "created_by": group.created_by
+            })
+    return groups
+
+@app.post("/groups/{group_id}/join")
+def join_group(group_id: int, data: dict, db: Session = Depends(get_db)):
+    """Adiciona um usuário ao grupo"""
+    user_id = data.get("user_id")
+    
+    if not user_id:
+        raise HTTPException(status_code=400, detail="ID do usuário é obrigatório")
+    
+    # Verifica se o grupo existe
+    group = db.query(models.Group).filter(models.Group.id == group_id).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="Grupo não encontrado")
+    
+    # Verifica se o usuário já está no grupo
+    existing = db.execute(
+        models.user_groups.select().where(
+            models.user_groups.c.user_id == user_id,
+            models.user_groups.c.group_id == group_id
+        )
+    ).fetchone()
+    
+    if existing:
+        raise HTTPException(status_code=400, detail="Usuário já está neste grupo")
+    
+    try:
+        db.execute(models.user_groups.insert().values(
+            user_id=user_id,
+            group_id=group_id,
+            role='member'
+        ))
+        db.commit()
+        return {"status": "success", "message": "Você entrou no grupo com sucesso!"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Erro ao entrar no grupo")
+
+@app.delete("/groups/{group_id}/leave")
+def leave_group(group_id: int, data: dict, db: Session = Depends(get_db)):
+    """Remove um usuário do grupo"""
+    user_id = data.get("user_id")
+    
+    if not user_id:
+        raise HTTPException(status_code=400, detail="ID do usuário é obrigatório")
+    
+    # Verifica se o grupo existe
+    group = db.query(models.Group).filter(models.Group.id == group_id).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="Grupo não encontrado")
+    
+    # O criador não pode sair do grupo
+    if group.created_by == user_id:
+        raise HTTPException(status_code=400, detail="O criador não pode sair do grupo. Exclua o grupo instead.")
+    
+    try:
+        db.execute(
+            models.user_groups.delete().where(
+                models.user_groups.c.user_id == user_id,
+                models.user_groups.c.group_id == group_id
+            )
+        )
+        db.commit()
+        return {"status": "success", "message": "Você saiu do grupo com sucesso!"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Erro ao sair do grupo")
+
+@app.delete("/groups/{group_id}")
+def delete_group(group_id: int, data: dict, db: Session = Depends(get_db)):
+    """Exclui um grupo (apenas pelo admin)"""
+    user_id = data.get("user_id")
+    
+    if not user_id:
+        raise HTTPException(status_code=400, detail="ID do usuário é obrigatório")
+    
+    # Verifica se o grupo existe
+    group = db.query(models.Group).filter(models.Group.id == group_id).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="Grupo não encontrado")
+    
+    # Verifica se o usuário é o admin
+    membership = db.execute(
+        models.user_groups.select().where(
+            models.user_groups.c.user_id == user_id,
+            models.user_groups.c.group_id == group_id,
+            models.user_groups.c.role == 'admin'
+        )
+    ).fetchone()
+    
+    if not membership:
+        raise HTTPException(status_code=403, detail="Apenas o admin pode excluir o grupo")
+    
+    try:
+        # Remove todos os membros
+        db.execute(
+            models.user_groups.delete().where(models.user_groups.c.group_id == group_id)
+        )
+        # Remove o grupo
+        db.delete(group)
+        db.commit()
+        return {"status": "success", "message": "Grupo excluído com sucesso!"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Erro ao excluir grupo")
+
+@app.get("/groups/{group_id}/members")
+def get_group_members(group_id: int, db: Session = Depends(get_db)):
+    """Lista os membros de um grupo"""
+    # Verifica se o grupo existe
+    group = db.query(models.Group).filter(models.Group.id == group_id).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="Grupo não encontrado")
+    
+    result = db.execute(
+        models.user_groups.select().where(models.user_groups.c.group_id == group_id)
+    ).fetchall()
+    
+    members = []
+    for r in result:
+        user = db.query(models.User).filter(models.User.id == r.user_id).first()
+        if user:
+            members.append({
+                "user_id": user.id,
+                "name": user.name,
+                "role": r.role
+            })
+    return members
+
+@app.get("/groups/{group_id}/ranking")
+def get_group_ranking(group_id: int, db: Session = Depends(get_db)):
+    """Retorna o ranking apenas dos membros do grupo"""
+    # Pega todos os membros do grupo
+    result = db.execute(
+        models.user_groups.select().where(models.user_groups.c.group_id == group_id)
+    ).fetchall()
+    
+    member_ids = [r.user_id for r in result]
+    
+    if not member_ids:
+        return []
+    
+    # Pega usuários do banco
+    users = db.query(models.User).filter(models.User.id.in_(member_ids)).all()
+    matches = db.query(models.Match).all()
+    guesses = db.query(models.Guess).all()
+    
+    matches_dict = {m.id: m for m in matches}
+    
+    ranking = []
+    
+    for user in users:
+        points = 0
+        user_guesses = [g for g in guesses if g.user_id == user.id]
+        
+        for g in user_guesses:
+            m = matches_dict.get(g.match_id)
+            
+            if m and m.score_1 is not None:
+                if g.score_1 == m.score_1 and g.score_2 == m.score_2:
+                    points += 3
+                else:
+                    g_tendencia = (g.score_1 > g.score_2) - (g.score_1 < g.score_2)
+                    m_tendencia = (m.score_1 > m.score_2) - (m.score_1 < m.score_2)
+                    
+                    if g_tendencia == m_tendencia:
+                        points += 1
+                        
+        ranking.append({"name": user.name, "points": points})
+    
+    return sorted(ranking, key=lambda x: x['points'], reverse=True)
