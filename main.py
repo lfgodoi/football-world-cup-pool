@@ -147,7 +147,17 @@ def get_user(user_id: int, db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
-    return {"user_id": user.id, "name": user.name}
+    return {
+        "user_id": user.id, 
+        "name": user.name,
+        "security_question": user.security_question
+    }
+
+@app.get("/users")
+def get_all_users(db: Session = Depends(get_db)):
+    """Lista todos os usuários (para recuperação de senha)"""
+    users = db.query(models.User).all()
+    return [{"id": u.id, "name": u.name} for u in users]
 
 @app.post("/login")
 def login(data: dict, db: Session = Depends(get_db)):
@@ -207,3 +217,87 @@ def register(data: dict, db: Session = Depends(get_db)):
             status_code=500, 
             detail="Erro interno ao salvar no banco de dados."
         )
+
+@app.post("/forgot_password")
+def forgot_password(data: dict, db: Session = Depends(get_db)):
+    """
+    Recuperação de senha:用户提供用户名和安全问题答案来重置密码
+    """
+    username = data.get("username")
+    security_answer = data.get("security_answer")
+    new_password = data.get("new_password")
+
+    # 1. Validação básica
+    if not all([username, security_answer, new_password]):
+        raise HTTPException(
+            status_code=400, 
+            detail="Todos os campos são obrigatórios."
+        )
+
+    # 2. Busca o usuário
+    user = db.query(models.User).filter(models.User.name == username).first()
+    if not user:
+        raise HTTPException(
+            status_code=404, 
+            detail="Usuário não encontrado."
+        )
+
+    # 3. Verifica a resposta de segurança (case-insensitive)
+    if user.security_answer.lower() != security_answer.lower():
+        raise HTTPException(
+            status_code=401, 
+            detail="Resposta de segurança incorreta."
+        )
+
+    # 4. Atualiza a senha
+    user.password = new_password
+    
+    try:
+        db.commit()
+        return {
+            "status": "success", 
+            "message": "Senha alterada com sucesso! Agora você pode fazer login."
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500, 
+            detail="Erro ao atualizar a senha."
+        )
+
+@app.put("/users/{user_id}")
+def update_user(user_id: int, data: dict, db: Session = Depends(get_db)):
+    """
+    Atualiza o perfil do usuário: permite alterar username e/ou password
+    """
+    new_name = data.get("name")
+    new_password = data.get("password")
+    
+    # Busca o usuário
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    
+    # Se novo nome for fornecido, verifica se já está em uso (por outro usuário)
+    if new_name and new_name != user.name:
+        existing = db.query(models.User).filter(models.User.name == new_name).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Este nome de usuário já está em uso")
+        user.name = new_name
+    
+    # Se nova senha for fornecida, atualiza
+    if new_password:
+        user.password = new_password
+    
+    try:
+        db.commit()
+        db.refresh(user)
+        return {
+            "status": "success", 
+            "message": "Perfil atualizado com sucesso",
+            "user_id": user.id,
+            "name": user.name
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Erro ao atualizar perfil")

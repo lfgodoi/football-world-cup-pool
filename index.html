@@ -345,16 +345,16 @@
             </div>
 
             <div class="form-group">
-                <label>Novo Nome (Exibição)</label>
-                <input type="text" placeholder="Alterar meu nome">
+                <label>Novo Nome de Usuário</label>
+                <input type="text" id="new-username" placeholder="Digite novo nome de usuário">
             </div>
             
             <div class="form-group">
                 <label>Nova Senha</label>
-                <input type="password" placeholder="••••••••">
+                <input type="password" id="new-password" placeholder="Digite nova senha">
             </div>
             
-            <button class="save-btn" onclick="alert('Perfil atualizado!')">Salvar Alterações</button>
+            <button class="save-btn" onclick="updateProfile()">Salvar Alterações</button>
         </div>
     </div>
 </div>
@@ -510,6 +510,48 @@ async function loadMatches() {
                 document.getElementById('current-username').value = userData.name;
             }
         } catch (e) { console.error(e); }
+    }
+    
+    async function updateProfile() {
+        const newUsername = document.getElementById('new-username').value;
+        const newPassword = document.getElementById('new-password').value;
+        
+        if (!newUsername && !newPassword) {
+            alert("Preenha pelo menos um campo para atualizar!");
+            return;
+        }
+        
+        const payload = {};
+        if (newUsername) payload.name = newUsername;
+        if (newPassword) payload.password = newPassword;
+        
+        try {
+            const response = await fetch(`${API_URL}/users/${USUARIO_LOGADO_ID}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                alert(data.message || "Perfil atualizado com sucesso!");
+                // Limpa os campos
+                document.getElementById('new-username').value = '';
+                document.getElementById('new-password').value = '';
+                // Atualiza o nome exibido
+                document.getElementById('current-username').value = data.name;
+                // Atualiza o localStorage se o nome mudou
+                if (newUsername) {
+                    localStorage.setItem('user_name', data.name);
+                }
+            } else {
+                alert(data.detail || "Erro ao atualizar perfil");
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Erro ao conectar no servidor!");
+        }
     }
     
     async function openSpyModal(matchId, matchName) {

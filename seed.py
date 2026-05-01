@@ -18,7 +18,9 @@ def seed_database():
                     new_user = models.User(
                         id=u['user_id'],
                         name=u['name'],
-                        password=u['password'] # Em produção, use hash!
+                        password=u['password'], # Em produção, use hash!
+                        security_question=u.get('security_question'),
+                        security_answer=u.get('security_answer')
                     )
                     db.add(new_user)
         
