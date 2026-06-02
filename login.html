@@ -57,7 +57,7 @@ select {
     <input type="text" id="security_answer" placeholder="Sua resposta">
 </div>
 
-        <button id="auth-btn" onclick="handleAuth()">Entrar</button>
+        <button id="auth-btn" type="button" onclick="handleAuth()">Entrar</button>
         
         <p class="toggle-text">
             <span id="toggle-msg">Não tem uma conta?</span> 
@@ -148,7 +148,31 @@ select {
             }
         }
 
+        function getApiErrorMessage(data, fallback) {
+            if (!data) return fallback;
+            if (typeof data === 'string') return data;
+            if (typeof data.detail === 'string') return data.detail;
+            if (Array.isArray(data.detail)) {
+                return data.detail.map(item => {
+                    if (typeof item === 'string') return item;
+                    if (item && item.msg) return item.msg;
+                    return JSON.stringify(item);
+                }).join(' | ');
+            }
+            if (data.detail && typeof data.detail === 'object') {
+                return data.detail.message || JSON.stringify(data.detail);
+            }
+            if (data.message) return data.message;
+            return JSON.stringify(data);
+        }
+
+        function showApiError(data, fallback) {
+            const message = getApiErrorMessage(data, fallback);
+            alert(typeof message === 'string' ? message : JSON.stringify(message));
+        }
+
         async function doLogin(username, password) {
+            console.log('Login payload:', { username, password });
             try {
                 const response = await fetch(`${API_URL}/login`, {
                     method: 'POST',
@@ -156,10 +180,24 @@ select {
                     body: JSON.stringify({ username, password })
                 });
 
-                const data = await response.json();
+                const text = await response.text();
+                console.log('Login response status:', response.status, 'body:', text);
+
+                let data;
+                try {
+                    data = JSON.parse(text);
+                } catch (err) {
+                    console.error('Falha ao parsear resposta JSON:', err, text);
+                    alert('Erro inesperado no servidor. Veja o console.');
+                    return;
+                }
 
                 if (response.ok) {
                     const idParaSalvar = data.user_id || data.id;
+                    const token = data.token;
+                    if (token) {
+                        localStorage.setItem('session_token', token);
+                    }
                     if (idParaSalvar) {
                         localStorage.setItem('user_id', String(idParaSalvar));
                         localStorage.setItem('user_name', data.name);
@@ -167,7 +205,7 @@ select {
                         window.location.href = "./index.html"; 
                     }
                 } else {
-                    alert(data.detail || "Usuário ou senha inválidos");
+                    showApiError(data, "Usuário ou senha inválidos");
                 }
             } catch (e) {
                 console.error(e);
@@ -196,7 +234,7 @@ select {
                     // Limpa os campos de segurança para privacidade
                     document.getElementById('security_answer').value = "";
                 } else {
-                    alert(data.detail || "Erro ao criar conta. Tente outro nome de usuário.");
+                    showApiError(data, "Erro ao criar conta. Tente outro nome de usuário.");
                 }
             } catch (e) {
                 console.error(e);
@@ -301,7 +339,7 @@ select {
                     alert(data.message || "Senha alterada com sucesso!");
                     closeForgotPassword();
                 } else {
-                    alert(data.detail || "Erro ao alterar senha. Verifique a resposta de segurança.");
+                    showApiError(data, "Erro ao alterar senha. Verifique a resposta de segurança.");
                 }
             } catch (e) {
                 console.error(e);

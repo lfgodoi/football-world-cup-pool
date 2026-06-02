@@ -1,7 +1,11 @@
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Header, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 import json
 import os
+import uuid
+import hashlib
+import binascii
+import datetime
 from sqlalchemy.orm import Session
 import models
 import database
@@ -18,13 +22,71 @@ def get_db():
 
 app = FastAPI()
 
-# Permite que seu Frontend acesse o Backend
+# Permite que seu Frontend acesse o Backend de forma controlada
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=["http://127.0.0.1:8080", "http://localhost:8080"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
+
+# Sessões em memória para tokens de autenticação
+SESSIONS = {}
+
+def hash_password(password: str) -> str:
+    salt = os.urandom(16)
+    hashed = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, 100000)
+    return f"{binascii.hexlify(salt).decode()}${binascii.hexlify(hashed).decode()}"
+
+
+def verify_password(stored_password: str, provided_password: str) -> bool:
+    if not stored_password or not provided_password:
+        return False
+    if '$' not in stored_password:
+        return stored_password == provided_password
+    salt_hex, hash_hex = stored_password.split('$', 1)
+    salt = binascii.unhexlify(salt_hex.encode())
+    expected_hash = hashlib.pbkdf2_hmac('sha256', provided_password.encode('utf-8'), salt, 100000)
+    return binascii.hexlify(expected_hash).decode() == hash_hex
+
+
+def create_session(user_id: int) -> str:
+    token = uuid.uuid4().hex
+    SESSIONS[token] = {
+        "user_id": user_id,
+        "created_at": datetime.datetime.utcnow().isoformat()
+    }
+    return token
+
+
+def get_token_from_header(authorization: str | None) -> str:
+    if not authorization:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authorization header missing")
+    parts = authorization.split()
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authorization header")
+    return parts[1]
+
+
+def get_current_user(authorization: str = Header(None), db: Session = Depends(get_db)):
+    token = get_token_from_header(authorization)
+    session = SESSIONS.get(token)
+    if not session:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Sessão inválida ou expirada")
+    user = db.query(models.User).filter(models.User.id == session["user_id"]).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuário da sessão não encontrado")
+    return user
+
+
+def match_has_started(match) -> bool:
+    if not match.kickoff:
+        return False
+    try:
+        kickoff_time = datetime.datetime.fromisoformat(match.kickoff)
+        return datetime.datetime.utcnow() >= kickoff_time
+    except ValueError:
+        return False
 
 # Helpers para ler/escrever JSON
 def read_json(filename):
@@ -44,44 +106,51 @@ def get_matches(db: Session = Depends(get_db)):
     return matches
 
 @app.get("/guesses/{user_id}")
-def get_user_guesses(user_id: int, db: Session = Depends(get_db)):
-    # Busca todos os palpites onde o campo user_id coincide com o parâmetro da URL
+def get_user_guesses(user_id: int, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if current_user.id != user_id:
+        raise HTTPException(status_code=403, detail="Acesso negado aos palpites de outro usuário")
+
     guesses = db.query(models.Guess).filter(models.Guess.user_id == user_id).all()
-    
-    # O FastAPI converte automaticamente a lista de objetos do banco para JSON
     return guesses
 
 @app.post("/save_guess")
-def save_guess(data: dict, db: Session = Depends(get_db)):
-    user_id = data.get("user_id")
+def save_guess(data: dict, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     match_id = data.get("match_id")
-    
-    # Procura se já existe um palpite deste usuário para este jogo
+    score_1 = data.get("score_1")
+    score_2 = data.get("score_2")
+
+    if match_id is None or score_1 is None or score_2 is None:
+        raise HTTPException(status_code=400, detail="match_id, score_1 e score_2 são obrigatórios")
+
+    match = db.query(models.Match).filter(models.Match.id == match_id).first()
+    if not match:
+        raise HTTPException(status_code=404, detail="Partida não encontrada")
+
+    if match.score_1 is not None or match.score_2 is not None or match_has_started(match):
+        raise HTTPException(
+            status_code=403,
+            detail="Palpites não podem ser salvos ou alterados após o início da partida ou depois que o resultado oficial estiver definido."
+        )
+
     guess = db.query(models.Guess).filter(
-        models.Guess.user_id == user_id,
+        models.Guess.user_id == current_user.id,
         models.Guess.match_id == match_id
     ).first()
 
     if guess:
-        # UPDATE: Se já existe, apenas atualiza os scores
-        guess.score_1 = data.get("score_1")
-        guess.score_2 = data.get("score_2")
+        guess.score_1 = score_1
+        guess.score_2 = score_2
     else:
-        # INSERT: Se não existe, cria um novo registro
         guess = models.Guess(
-            user_id=user_id,
+            user_id=current_user.id,
             match_id=match_id,
-            score_1=data.get("score_1"),
-            score_2=data.get("score_2")
+            score_1=score_1,
+            score_2=score_2
         )
         db.add(guess)
 
     db.commit()
     return {"status": "success"}
-
-from sqlalchemy.orm import Session
-from fastapi import Depends
-import models
 
 @app.get("/ranking")
 def get_ranking(db: Session = Depends(get_db)):
@@ -160,46 +229,60 @@ def get_all_users(db: Session = Depends(get_db)):
     return [{"id": u.id, "name": u.name} for u in users]
 
 @app.post("/login")
-def login(data: dict, db: Session = Depends(get_db)):
-    # Instead of reading JSON, we query the DB
-    user = db.query(models.User).filter(
-        models.User.name == data.get('username'),
-        models.User.password == data.get('password')
-    ).first()
+async def login(request: Request, db: Session = Depends(get_db)):
+    try:
+        data = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="JSON inválido ou malformado")
 
-    if user:
-        return {"user_id": user.id, "name": user.name}
-    raise HTTPException(status_code=401, detail="Invalid credentials")
+    username = data.get('username')
+    password = data.get('password')
+    if not username or not password:
+        raise HTTPException(status_code=400, detail="Usuário e senha são obrigatórios")
+
+    user = db.query(models.User).filter(models.User.name == username).first()
+    if not user or not verify_password(user.password, password):
+        raise HTTPException(status_code=401, detail="Usuário ou senha inválidos")
+
+    if '$' not in user.password:
+        user.password = hash_password(password)
+        db.commit()
+
+    token = create_session(user.id)
+    return {"user_id": user.id, "name": user.name, "token": token}
+
+@app.post("/logout")
+def logout(authorization: str = Header(None)):
+    token = get_token_from_header(authorization)
+    if token in SESSIONS:
+        del SESSIONS[token]
+    return {"status": "success", "message": "Logout realizado"}
 
 @app.post("/register")
 def register(data: dict, db: Session = Depends(get_db)):
-    # 1. Extração dos dados
     username = data.get("name")
     password = data.get("password")
     question = data.get("security_question")
     answer = data.get("security_answer")
 
-    # 2. Validação básica (evita salvar campos vazios no banco)
     if not all([username, password, question, answer]):
         raise HTTPException(
-            status_code=400, 
+            status_code=400,
             detail="Todos os campos são obrigatórios (nome, senha, pergunta e resposta)."
         )
 
-    # 3. Verifica se o nome já existe (case-insensitive para evitar 'Admin' e 'admin')
     existing_user = db.query(models.User).filter(models.User.name == username).first()
     if existing_user:
         raise HTTPException(
-            status_code=400, 
+            status_code=400,
             detail="Este nome de usuário já está em uso."
         )
 
-    # 4. Criação do novo usuário
     new_user = models.User(
         name=username,
-        password=password,
+        password=hash_password(password),
         security_question=question,
-        security_answer=answer
+        security_answer=answer.strip()
     )
     
     try:
@@ -207,14 +290,14 @@ def register(data: dict, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(new_user)
         return {
-            "status": "success", 
+            "status": "success",
             "message": "Usuário criado com sucesso",
             "user_id": new_user.id
         }
-    except Exception as e:
+    except Exception:
         db.rollback()
         raise HTTPException(
-            status_code=500, 
+            status_code=500,
             detail="Erro interno ao salvar no banco de dados."
         )
 
@@ -266,54 +349,51 @@ def forgot_password(data: dict, db: Session = Depends(get_db)):
         )
 
 @app.put("/users/{user_id}")
-def update_user(user_id: int, data: dict, db: Session = Depends(get_db)):
+def update_user(user_id: int, data: dict, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     Atualiza o perfil do usuário: permite alterar username e/ou password
     """
+    if current_user.id != user_id:
+        raise HTTPException(status_code=403, detail="Você só pode atualizar seu próprio perfil")
+
     new_name = data.get("name")
     new_password = data.get("password")
     
-    # Busca o usuário
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
     
-    # Se novo nome for fornecido, verifica se já está em uso (por outro usuário)
     if new_name and new_name != user.name:
         existing = db.query(models.User).filter(models.User.name == new_name).first()
         if existing:
             raise HTTPException(status_code=400, detail="Este nome de usuário já está em uso")
         user.name = new_name
     
-    # Se nova senha for fornecida, atualiza
     if new_password:
-        user.password = new_password
+        user.password = hash_password(new_password)
     
     try:
         db.commit()
         db.refresh(user)
         return {
-            "status": "success", 
+            "status": "success",
             "message": "Perfil atualizado com sucesso",
             "user_id": user.id,
             "name": user.name
         }
-    except Exception as e:
+    except Exception:
         db.rollback()
         raise HTTPException(status_code=500, detail="Erro ao atualizar perfil")
 
 # ==================== GROUP ENDPOINTS ====================
 
 @app.post("/groups")
-def create_group(data: dict, db: Session = Depends(get_db)):
+def create_group(data: dict, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Cria um novo grupo"""
     name = data.get("name")
-    user_id = data.get("user_id")
+    if not name:
+        raise HTTPException(status_code=400, detail="Nome do grupo é obrigatório")
     
-    if not name or not user_id:
-        raise HTTPException(status_code=400, detail="Nome do grupo e ID do usuário são obrigatórios")
-    
-    # Verifica se o grupo já existe
     existing = db.query(models.Group).filter(models.Group.name == name).first()
     if existing:
         raise HTTPException(status_code=400, detail="Este nome de grupo já está em uso")
@@ -321,7 +401,7 @@ def create_group(data: dict, db: Session = Depends(get_db)):
     from datetime import datetime
     new_group = models.Group(
         name=name,
-        created_by=user_id,
+        created_by=current_user.id,
         created_at=datetime.now().isoformat()
     )
     
@@ -330,9 +410,8 @@ def create_group(data: dict, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(new_group)
         
-        # Adiciona o criador como admin do grupo
         db.execute(models.user_groups.insert().values(
-            user_id=user_id,
+            user_id=current_user.id,
             group_id=new_group.id,
             role='admin'
         ))
@@ -343,7 +422,7 @@ def create_group(data: dict, db: Session = Depends(get_db)):
             "group_id": new_group.id,
             "group_name": new_group.name
         }
-    except Exception as e:
+    except Exception:
         db.rollback()
         raise HTTPException(status_code=500, detail="Erro ao criar grupo")
 
@@ -354,8 +433,11 @@ def get_all_groups(db: Session = Depends(get_db)):
     return [{"id": g.id, "name": g.name} for g in groups]
 
 @app.get("/groups/user/{user_id}")
-def get_user_groups(user_id: int, db: Session = Depends(get_db)):
+def get_user_groups(user_id: int, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Lista os grupos que o usuário participa"""
+    if current_user.id != user_id:
+        raise HTTPException(status_code=403, detail="Acesso negado aos grupos de outro usuário")
+
     result = db.execute(
         models.user_groups.select().where(models.user_groups.c.user_id == user_id)
     ).fetchall()
@@ -373,88 +455,64 @@ def get_user_groups(user_id: int, db: Session = Depends(get_db)):
     return groups
 
 @app.post("/groups/{group_id}/join")
-def join_group(group_id: int, data: dict, db: Session = Depends(get_db)):
-    """Adiciona um usuário ao grupo"""
-    user_id = data.get("user_id")
-    
-    if not user_id:
-        raise HTTPException(status_code=400, detail="ID do usuário é obrigatório")
-    
-    # Verifica se o grupo existe
+def join_group(group_id: int, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     group = db.query(models.Group).filter(models.Group.id == group_id).first()
     if not group:
         raise HTTPException(status_code=404, detail="Grupo não encontrado")
-    
-    # Verifica se o usuário já está no grupo
+
     existing = db.execute(
         models.user_groups.select().where(
-            models.user_groups.c.user_id == user_id,
+            models.user_groups.c.user_id == current_user.id,
             models.user_groups.c.group_id == group_id
         )
     ).fetchone()
     
     if existing:
-        raise HTTPException(status_code=400, detail="Usuário já está neste grupo")
+        raise HTTPException(status_code=400, detail="Você já está neste grupo")
     
     try:
         db.execute(models.user_groups.insert().values(
-            user_id=user_id,
+            user_id=current_user.id,
             group_id=group_id,
             role='member'
         ))
         db.commit()
         return {"status": "success", "message": "Você entrou no grupo com sucesso!"}
-    except Exception as e:
+    except Exception:
         db.rollback()
         raise HTTPException(status_code=500, detail="Erro ao entrar no grupo")
 
 @app.delete("/groups/{group_id}/leave")
-def leave_group(group_id: int, data: dict, db: Session = Depends(get_db)):
-    """Remove um usuário do grupo"""
-    user_id = data.get("user_id")
-    
-    if not user_id:
-        raise HTTPException(status_code=400, detail="ID do usuário é obrigatório")
-    
-    # Verifica se o grupo existe
+def leave_group(group_id: int, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     group = db.query(models.Group).filter(models.Group.id == group_id).first()
     if not group:
         raise HTTPException(status_code=404, detail="Grupo não encontrado")
     
-    # O criador não pode sair do grupo
-    if group.created_by == user_id:
-        raise HTTPException(status_code=400, detail="O criador não pode sair do grupo. Exclua o grupo instead.")
+    if group.created_by == current_user.id:
+        raise HTTPException(status_code=400, detail="O criador não pode sair do grupo. Exclua o grupo em vez disso.")
     
     try:
         db.execute(
             models.user_groups.delete().where(
-                models.user_groups.c.user_id == user_id,
+                models.user_groups.c.user_id == current_user.id,
                 models.user_groups.c.group_id == group_id
             )
         )
         db.commit()
         return {"status": "success", "message": "Você saiu do grupo com sucesso!"}
-    except Exception as e:
+    except Exception:
         db.rollback()
         raise HTTPException(status_code=500, detail="Erro ao sair do grupo")
 
 @app.delete("/groups/{group_id}")
-def delete_group(group_id: int, data: dict, db: Session = Depends(get_db)):
-    """Exclui um grupo (apenas pelo admin)"""
-    user_id = data.get("user_id")
-    
-    if not user_id:
-        raise HTTPException(status_code=400, detail="ID do usuário é obrigatório")
-    
-    # Verifica se o grupo existe
+def delete_group(group_id: int, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     group = db.query(models.Group).filter(models.Group.id == group_id).first()
     if not group:
         raise HTTPException(status_code=404, detail="Grupo não encontrado")
     
-    # Verifica se o usuário é o admin
     membership = db.execute(
         models.user_groups.select().where(
-            models.user_groups.c.user_id == user_id,
+            models.user_groups.c.user_id == current_user.id,
             models.user_groups.c.group_id == group_id,
             models.user_groups.c.role == 'admin'
         )
@@ -464,15 +522,13 @@ def delete_group(group_id: int, data: dict, db: Session = Depends(get_db)):
         raise HTTPException(status_code=403, detail="Apenas o admin pode excluir o grupo")
     
     try:
-        # Remove todos os membros
         db.execute(
             models.user_groups.delete().where(models.user_groups.c.group_id == group_id)
         )
-        # Remove o grupo
         db.delete(group)
         db.commit()
         return {"status": "success", "message": "Grupo excluído com sucesso!"}
-    except Exception as e:
+    except Exception:
         db.rollback()
         raise HTTPException(status_code=500, detail="Erro ao excluir grupo")
 

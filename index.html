@@ -161,10 +161,12 @@
         .no-groups { color: #888; text-align: center; padding: 20px; }
         
         /* Group selector in ranking */
-        .group-selector { margin-bottom: 20px; text-align: center; }
+        .group-selector { margin: 20px auto 20px; text-align: center; }
         .group-selector label { margin-right: 10px; font-weight: 600; color: var(--primary-color); }
         .group-selector select { padding: 8px 12px; border-radius: 6px; border: 1px solid #ddd; font-size: 14px; background: white; }
         .groups-section { margin-top: 30px; }
+        .group-section .form-group { margin-top: 12px; }
+        .save-btn { background-color: var(--primary-color); color: white; border: none; padding: 15px; width: 100%; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 10px; }
 
         @media (max-width: 768px) { #match-list { grid-template-columns: 1fr; } }
         
@@ -383,6 +385,14 @@
                 <span class="rule-points">0 PONTO</span>
             </div>
         </div>
+        <div class="info-container" style="margin-top: 25px; padding: 20px; background: #ffffff; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.04);">
+            <h3 style="margin-top:0;">Informações importantes</h3>
+            <ul style="padding-left: 20px; color: #333; line-height: 1.6;">
+                <li>Este é um aplicativo gratuito, destinado exclusivamente para fins de entretenimento.</li>
+                <li>Todas as funcionalidades do aplicativo são 100% gratuitas, sem qualquer exigência de pagamento.</li>
+                <li>O aplicativo permite a criação de grupos para o compartilhamento de palpites entre amigos. Contudo, qualquer aposta externa realizada com base nesses resultados, seja envolvendo dinheiro ou bens materiais, é de inteira responsabilidade dos usuários, sem qualquer vínculo ou envolvimento dos desenvolvedores.</li>
+            </ul>
+        </div>
     </div>
 
     <div id="conta" class="tab-content">
@@ -414,23 +424,34 @@
     // 1. CONFIGURAÇÕES GLOBAIS E AUTENTICAÇÃO
 // 1. Verificação de Autenticação com Debug
     const rawId = localStorage.getItem('user_id');
-    console.log("Tentando ler ID do localStorage:", rawId);
+    const SESSION_TOKEN = localStorage.getItem('session_token');
+    console.log("Tentando ler ID do localStorage:", rawId, "token:", SESSION_TOKEN);
 
-    if (!rawId || rawId === "undefined" || rawId === "null") {
-        console.log("ID inválido ou ausente. Redirecionando para login...");
+    if (!rawId || rawId === "undefined" || rawId === "null" || !SESSION_TOKEN) {
+        console.log("ID ou token inválido/ausente. Redirecionando para login...");
+        localStorage.removeItem('session_token');
         window.location.href = 'login.html';
     } else {
         console.log("Acesso permitido para o ID:", rawId);
     }
 
-    // Configurações Globais (DEFINIR APENAS UMA VEZ)
     const API_URL = "http://127.0.0.1:8000";
     const USUARIO_LOGADO_ID = parseInt(rawId);
+
+    function authHeaders(contentType = null) {
+        const headers = { Authorization: `Bearer ${SESSION_TOKEN}` };
+        if (contentType) {
+            headers['Content-Type'] = contentType;
+        }
+        return headers;
+    }
 
     // 2. FUNÇÕES DE NAVEGAÇÃO E UI
     function handleLogout() {
         if (confirm("Deseja realmente sair?")) {
-            localStorage.clear(); 
+            localStorage.removeItem('user_id');
+            localStorage.removeItem('user_name');
+            localStorage.removeItem('session_token');
             window.location.href = 'login.html';
         }
     }
@@ -458,8 +479,8 @@ async function loadMatches() {
     const container = document.getElementById('match-list');
     try {
         const [resMatches, resGuesses] = await Promise.all([
-            fetch(`${API_URL}/matches`),
-            fetch(`${API_URL}/guesses/${USUARIO_LOGADO_ID}`)
+            fetch(`${API_URL}/matches`, { headers: authHeaders() }),
+            fetch(`${API_URL}/guesses/${USUARIO_LOGADO_ID}`, { headers: authHeaders() })
         ]);
 
         if (!resMatches.ok || !resGuesses.ok) throw new Error("Erro ao buscar dados do servidor");
@@ -541,7 +562,7 @@ async function loadMatches() {
                 url = `${API_URL}/groups/${selectedGroupId}/ranking`;
             }
             
-            const response = await fetch(url);
+            const response = await fetch(url, { headers: authHeaders() });
             rankingData = await response.json();
             
             body.innerHTML = '';
@@ -573,7 +594,7 @@ async function loadMatches() {
         const groupSelect = document.getElementById('group-select');
         
         try {
-            const response = await fetch(`${API_URL}/groups/user/${USUARIO_LOGADO_ID}`);
+            const response = await fetch(`${API_URL}/groups/user/${USUARIO_LOGADO_ID}`, { headers: authHeaders() });
             const groups = await response.json();
             
             // Keep the "Geral" option
@@ -593,7 +614,7 @@ async function loadMatches() {
     
     async function loadUserProfile() {
         try {
-            const response = await fetch(`${API_URL}/users/${USUARIO_LOGADO_ID}`);
+            const response = await fetch(`${API_URL}/users/${USUARIO_LOGADO_ID}`, { headers: authHeaders() });
             const userData = await response.json();
             if (userData && userData.name) {
                 document.getElementById('current-username').value = userData.name;
@@ -617,7 +638,7 @@ async function loadMatches() {
         try {
             const response = await fetch(`${API_URL}/users/${USUARIO_LOGADO_ID}`, {
                 method: 'PUT',
-                headers: {'Content-Type': 'application/json'},
+                headers: authHeaders('application/json'),
                 body: JSON.stringify(payload)
             });
             
@@ -651,7 +672,7 @@ async function loadMatches() {
         modal.style.display = "block";
 
         try {
-            const response = await fetch(`${API_URL}/matches/${matchId}/guesses`);
+            const response = await fetch(`${API_URL}/matches/${matchId}/guesses`, { headers: authHeaders() });
             const palpites = await response.json();
 
             if (palpites.length === 0) {
@@ -679,7 +700,6 @@ async function saveGuess(matchId, inputElement) {
     if (s1 === "" || s2 === "") return;
 
     const payload = {
-        user_id: USUARIO_LOGADO_ID,
         match_id: parseInt(matchId),
         score_1: parseInt(s1),
         score_2: parseInt(s2)
@@ -690,7 +710,7 @@ async function saveGuess(matchId, inputElement) {
     try {
         const response = await fetch(`${API_URL}/save_guess`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: authHeaders('application/json'),
             body: JSON.stringify(payload)
         });
 
@@ -728,7 +748,7 @@ async function saveGuess(matchId, inputElement) {
     async function loadMyGroups() {
         const container = document.getElementById('my-groups-list');
         try {
-            const response = await fetch(`${API_URL}/groups/user/${USUARIO_LOGADO_ID}`);
+            const response = await fetch(`${API_URL}/groups/user/${USUARIO_LOGADO_ID}`, { headers: authHeaders() });
             const groups = await response.json();
             
             if (groups.length === 0) {
@@ -756,11 +776,11 @@ async function saveGuess(matchId, inputElement) {
         const container = document.getElementById('available-groups-list');
         try {
             // Busca todos os grupos
-            const allGroupsResponse = await fetch(`${API_URL}/groups`);
+            const allGroupsResponse = await fetch(`${API_URL}/groups`, { headers: authHeaders() });
             const allGroups = await allGroupsResponse.json();
             
             // Busca grupos que o usuário já participa
-            const myGroupsResponse = await fetch(`${API_URL}/groups/user/${USUARIO_LOGADO_ID}`);
+            const myGroupsResponse = await fetch(`${API_URL}/groups/user/${USUARIO_LOGADO_ID}`, { headers: authHeaders() });
             const myGroups = await myGroupsResponse.json();
             const myGroupIds = myGroups.map(g => g.id);
             
@@ -793,8 +813,8 @@ async function saveGuess(matchId, inputElement) {
         try {
             const response = await fetch(`${API_URL}/groups`, {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ name, user_id: USUARIO_LOGADO_ID })
+                headers: authHeaders('application/json'),
+                body: JSON.stringify({ name })
             });
             
             const data = await response.json();
@@ -802,7 +822,9 @@ async function saveGuess(matchId, inputElement) {
             if (response.ok) {
                 alert('Grupo criado com sucesso!');
                 document.getElementById('new-group-name').value = '';
-                loadGroups();
+                await loadGroups();
+                await loadGroupSelector();
+                loadRanking();
             } else {
                 alert(data.detail || 'Erro ao criar grupo');
             }
@@ -815,15 +837,16 @@ async function saveGuess(matchId, inputElement) {
         try {
             const response = await fetch(`${API_URL}/groups/${groupId}/join`, {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ user_id: USUARIO_LOGADO_ID })
+                headers: authHeaders()
             });
             
             const data = await response.json();
             
             if (response.ok) {
                 alert(data.message);
-                loadGroups();
+                await loadGroups();
+                await loadGroupSelector();
+                loadRanking();
             } else {
                 alert(data.detail || 'Erro ao entrar no grupo');
             }
@@ -838,15 +861,16 @@ async function saveGuess(matchId, inputElement) {
         try {
             const response = await fetch(`${API_URL}/groups/${groupId}/leave`, {
                 method: 'DELETE',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ user_id: USUARIO_LOGADO_ID })
+                headers: authHeaders('application/json')
             });
             
             const data = await response.json();
             
             if (response.ok) {
                 alert(data.message);
-                loadGroups();
+                await loadGroups();
+                await loadGroupSelector();
+                loadRanking();
             } else {
                 alert(data.detail || 'Erro ao sair do grupo');
             }
@@ -861,16 +885,16 @@ async function saveGuess(matchId, inputElement) {
         try {
             const response = await fetch(`${API_URL}/groups/${groupId}`, {
                 method: 'DELETE',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ user_id: USUARIO_LOGADO_ID })
+                headers: authHeaders('application/json')
             });
             
             const data = await response.json();
             
             if (response.ok) {
                 alert(data.message);
-                loadGroups();
-                loadGroupSelector();
+                await loadGroups();
+                await loadGroupSelector();
+                loadRanking();
             } else {
                 alert(data.detail || 'Erro ao excluir grupo');
             }
