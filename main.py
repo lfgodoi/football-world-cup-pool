@@ -195,9 +195,22 @@ def get_ranking(db: Session = Depends(get_db)):
 
 
 @app.get("/matches/{match_id}/guesses")
-def get_match_guesses(match_id: int, db: Session = Depends(get_db)):
+def get_match_guesses(match_id: int, group_id: int | None = None, db: Session = Depends(get_db)):
     # 1. Busca os palpites filtrando pelo ID do jogo
-    guesses = db.query(models.Guess).filter(models.Guess.match_id == match_id).all()
+    query = db.query(models.Guess).filter(models.Guess.match_id == match_id)
+
+    if group_id is not None:
+        result = db.execute(
+            models.user_groups.select().where(models.user_groups.c.group_id == group_id)
+        ).fetchall()
+        member_ids = [r.user_id for r in result]
+
+        if not member_ids:
+            return []
+
+        query = query.filter(models.Guess.user_id.in_(member_ids))
+
+    guesses = query.all()
     
     resultado = []
     for g in guesses:
