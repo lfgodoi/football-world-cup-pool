@@ -1,4 +1,4 @@
-from fastapi import Depends, FastAPI, HTTPException, Header, Request, status
+from fastapi import Depends, FastAPI, HTTPException, Header, status
 from fastapi.middleware.cors import CORSMiddleware
 import json
 import os
@@ -195,22 +195,9 @@ def get_ranking(db: Session = Depends(get_db)):
 
 
 @app.get("/matches/{match_id}/guesses")
-def get_match_guesses(match_id: int, group_id: int | None = None, db: Session = Depends(get_db)):
+def get_match_guesses(match_id: int, db: Session = Depends(get_db)):
     # 1. Busca os palpites filtrando pelo ID do jogo
-    query = db.query(models.Guess).filter(models.Guess.match_id == match_id)
-
-    if group_id is not None:
-        result = db.execute(
-            models.user_groups.select().where(models.user_groups.c.group_id == group_id)
-        ).fetchall()
-        member_ids = [r.user_id for r in result]
-
-        if not member_ids:
-            return []
-
-        query = query.filter(models.Guess.user_id.in_(member_ids))
-
-    guesses = query.all()
+    guesses = db.query(models.Guess).filter(models.Guess.match_id == match_id).all()
     
     resultado = []
     for g in guesses:
@@ -242,12 +229,7 @@ def get_all_users(db: Session = Depends(get_db)):
     return [{"id": u.id, "name": u.name} for u in users]
 
 @app.post("/login")
-async def login(request: Request, db: Session = Depends(get_db)):
-    try:
-        data = await request.json()
-    except Exception:
-        raise HTTPException(status_code=400, detail="JSON inválido ou malformado")
-
+def login(data: dict, db: Session = Depends(get_db)):
     username = data.get('username')
     password = data.get('password')
     if not username or not password:
@@ -468,7 +450,7 @@ def get_user_groups(user_id: int, current_user: models.User = Depends(get_curren
     return groups
 
 @app.post("/groups/{group_id}/join")
-def join_group(group_id: int, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+def join_group(group_id: int, data: dict, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     group = db.query(models.Group).filter(models.Group.id == group_id).first()
     if not group:
         raise HTTPException(status_code=404, detail="Grupo não encontrado")

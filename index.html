@@ -31,6 +31,9 @@
             padding: 0 20px;
             display: flex;
             justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
             position: sticky;
             top: 0;
@@ -198,8 +201,19 @@
 
         /* Ajuste para mobile */
         @media (max-width: 768px) {
-            nav { flex-direction: column; align-items: center; }
-            .logout-btn { position: static; margin-bottom: 10px; }
+            nav {
+                flex-wrap: nowrap;
+                overflow-x: auto;
+                justify-content: flex-start;
+            }
+            .tab-button {
+                flex: 0 0 auto;
+                padding: 12px 16px;
+            }
+            .logout-btn {
+                position: static;
+                margin: 0 0 0 auto;
+            }
         }
         
         /* --- MODAL DE PALPITES --- */
@@ -243,29 +257,6 @@
             justify-content: space-between;
             padding: 12px 0;
             border-bottom: 1px solid #eee;
-        }
-
-        .modal-group-selector {
-            margin-bottom: 18px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        .modal-group-selector label {
-            font-weight: 600;
-            color: var(--primary-color);
-        }
-
-        .modal-group-selector select {
-            width: 100%;
-            max-width: 320px;
-            padding: 10px 12px;
-            border-radius: 8px;
-            border: 1px solid #ddd;
-            background: #fff;
-            font-size: 0.95rem;
         }
 
         .spy-btn {
@@ -617,28 +608,19 @@ async function loadMatches() {
         const groupSelect = document.getElementById('group-select');
         
         try {
-            const response = await fetch(`${API_URL}/groups/user/${USUARIO_LOGADO_ID}`, { headers: authHeaders() });
+            const response = await fetch(`${API_URL}/groups/user/${USUARIO_LOGADO_ID}`);
             const groups = await response.json();
-
-            groupSelect.innerHTML = '';
-
-            // Add user's groups first
+            
+            // Keep the "Geral" option
+            groupSelect.innerHTML = '<option value="">Geral (Todos os usuários)</option>';
+            
+            // Add user's groups
             groups.forEach(g => {
                 const option = document.createElement('option');
                 option.value = g.id;
                 option.textContent = g.name;
                 groupSelect.appendChild(option);
             });
-
-            // Add general option last so it is lower priority
-            const generalOption = document.createElement('option');
-            generalOption.value = '';
-            generalOption.textContent = 'Geral (Todos os usuários)';
-            groupSelect.appendChild(generalOption);
-
-            if (groups.length > 0) {
-                groupSelect.selectedIndex = 0;
-            }
         } catch (e) {
             console.error('Error loading groups for selector:', e);
         }
@@ -696,78 +678,19 @@ async function loadMatches() {
         }
     }
     
-    let currentModalMatchId = null;
-
     async function openSpyModal(matchId, matchName) {
-        currentModalMatchId = matchId;
         const modal = document.getElementById('guessModal');
         const body = document.getElementById('modal-body');
         document.getElementById('modal-title').innerText = matchName;
         body.innerHTML = "Carregando...";
         modal.style.display = "block";
 
-        await loadModalGroupSelector();
-        await loadMatchGuessesInModal();
-    }
-
-    async function loadModalGroupSelector() {
-        const select = document.getElementById('modal-group-select');
-        select.innerHTML = '<option value="">Geral (Todos os usuários)</option>';
-
         try {
-            const response = await fetch(`${API_URL}/groups/user/${USUARIO_LOGADO_ID}`, { headers: authHeaders() });
-            const groups = await response.json();
-
-            if (groups.length === 0) {
-                return;
-            }
-
-            select.innerHTML = '';
-            groups.forEach(g => {
-                const option = document.createElement('option');
-                option.value = g.id;
-                option.textContent = g.name;
-                select.appendChild(option);
-            });
-
-            const generalOption = document.createElement('option');
-            generalOption.value = '';
-            generalOption.textContent = 'Geral (Todos os usuários)';
-            select.appendChild(generalOption);
-
-            select.selectedIndex = 0;
-        } catch (e) {
-            console.error('Erro ao carregar grupos do modal:', e);
-            select.innerHTML = '<option value="">Geral (Todos os usuários)</option>';
-        }
-    }
-
-    async function loadMatchGuessesInModal() {
-        const body = document.getElementById('modal-body');
-        const select = document.getElementById('modal-group-select');
-        const groupId = select.value;
-
-        if (!currentModalMatchId) {
-            body.innerHTML = '<p style="text-align:center; color:#e74c3c;">Match ID inválido.</p>';
-            return;
-        }
-
-        body.innerHTML = 'Carregando...';
-        try {
-            let url = `${API_URL}/matches/${currentModalMatchId}/guesses`;
-            if (groupId) {
-                url += `?group_id=${groupId}`;
-            }
-
-            const response = await fetch(url, { headers: authHeaders() });
+            const response = await fetch(`${API_URL}/matches/${matchId}/guesses`, { headers: authHeaders() });
             const palpites = await response.json();
 
-            if (!response.ok || !Array.isArray(palpites)) {
-                throw new Error('Resposta inválida do servidor');
-            }
-
             if (palpites.length === 0) {
-                body.innerHTML = '<p style="text-align:center; color:#888;">Ninguém palpitou.</p>';
+                body.innerHTML = "<p style='text-align:center; color:#888;'>Ninguém palpitou.</p>";
                 return;
             }
 
@@ -777,10 +700,7 @@ async function loadMatches() {
                     <span style="font-weight:bold; color:var(--primary-color);">${p.score_1} x ${p.score_2}</span>
                 </div>
             `).join('');
-        } catch (e) {
-            console.error('Erro ao carregar palpites do modal:', e);
-            body.innerHTML = '<p style="text-align:center; color:#e74c3c;">Erro ao carregar.</p>';
-        }
+        } catch (e) { body.innerHTML = "Erro ao carregar."; }
     }
 
 async function saveGuess(matchId, inputElement) {
@@ -916,9 +836,7 @@ async function saveGuess(matchId, inputElement) {
             if (response.ok) {
                 alert('Grupo criado com sucesso!');
                 document.getElementById('new-group-name').value = '';
-                await loadGroups();
-                await loadGroupSelector();
-                loadRanking();
+                loadGroups();
             } else {
                 alert(data.detail || 'Erro ao criar grupo');
             }
@@ -931,16 +849,14 @@ async function saveGuess(matchId, inputElement) {
         try {
             const response = await fetch(`${API_URL}/groups/${groupId}/join`, {
                 method: 'POST',
-                headers: authHeaders()
+                headers: authHeaders('application/json')
             });
             
             const data = await response.json();
             
             if (response.ok) {
                 alert(data.message);
-                await loadGroups();
-                await loadGroupSelector();
-                loadRanking();
+                loadGroups();
             } else {
                 alert(data.detail || 'Erro ao entrar no grupo');
             }
@@ -962,9 +878,7 @@ async function saveGuess(matchId, inputElement) {
             
             if (response.ok) {
                 alert(data.message);
-                await loadGroups();
-                await loadGroupSelector();
-                loadRanking();
+                loadGroups();
             } else {
                 alert(data.detail || 'Erro ao sair do grupo');
             }
@@ -986,9 +900,8 @@ async function saveGuess(matchId, inputElement) {
             
             if (response.ok) {
                 alert(data.message);
-                await loadGroups();
-                await loadGroupSelector();
-                loadRanking();
+                loadGroups();
+                loadGroupSelector();
             } else {
                 alert(data.detail || 'Erro ao excluir grupo');
             }
@@ -1002,10 +915,6 @@ async function saveGuess(matchId, inputElement) {
         <div class="modal-content">
             <span class="close-modal" onclick="closeModal()">&times;</span>
             <h3 id="modal-title" style="color: var(--primary-color); margin-bottom: 20px;">Palpites da Galera</h3>
-            <div class="modal-group-selector">
-                <label for="modal-group-select">Ver palpites do grupo:</label>
-                <select id="modal-group-select" onchange="loadMatchGuessesInModal()"></select>
-            </div>
             <div id="modal-body">
                 </div>
         </div>
