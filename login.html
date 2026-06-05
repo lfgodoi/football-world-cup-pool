@@ -5,8 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Acesso - Bolão Copa 2026</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        body {
+    font-family: Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace;
+    background: #f0f2f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0;
+}
         .auth-card { background: white; padding: 40px; border-radius: 16px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); width: 350px; text-align: center; transition: all 0.3s ease; }
+        .auth-logo {
+    display: block;
+    margin: 0 auto 20px; /* Centraliza horizontalmente e dá margem inferior de 20px */
+    max-width: 100px;        /* Controla a largura máxima do seu logo (ajuste se precisar) */
+    height: auto;            /* Mantém a proporção da imagem */
+}
         h2 { color: #1a2a3a; margin-bottom: 25px; font-weight: 700; }
         input { width: 100%; padding: 14px; margin: 8px 0; border: 1px solid #e0e0e0; border-radius: 8px; box-sizing: border-box; font-size: 14px; transition: border 0.3s; }
         input:focus { border-color: #27ae60; outline: none; }
@@ -40,7 +49,8 @@ select {
 </head>
 <body>
     <div class="auth-card">
-        <h2 id="auth-title">🏆 Bolão 2026</h2>
+        <img src="logo.png" alt="Logo Bolão Copa 2026" class="auth-logo">
+        <h2 id="auth-title">BOLÃO DA COPA DO MUNDO 2026</h2>
         
         <input type="text" id="username" placeholder="Nome de Usuário">
         <input type="password" id="password" placeholder="Senha">
