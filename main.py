@@ -210,6 +210,36 @@ def get_match_guesses(match_id: int, db: Session = Depends(get_db)):
         })
     return resultado
 
+@app.get("/groups/{group_id}/matches/{match_id}/guesses")
+def get_group_match_guesses(group_id: int, match_id: int, db: Session = Depends(get_db)):
+    """Retorna os palpites para um jogo específico apenas de membros do grupo"""
+    # Pega todos os membros do grupo
+    result = db.execute(
+        models.user_groups.select().where(models.user_groups.c.group_id == group_id)
+    ).fetchall()
+    
+    member_ids = [r.user_id for r in result]
+    
+    if not member_ids:
+        return []
+    
+    # Busca os palpites do jogo específico de membros do grupo
+    guesses = db.query(models.Guess).filter(
+        models.Guess.match_id == match_id,
+        models.Guess.user_id.in_(member_ids)
+    ).all()
+    
+    resultado = []
+    for g in guesses:
+        # Busca o nome do usuário que fez o palpite
+        user = db.query(models.User).filter(models.User.id == g.user_id).first()
+        resultado.append({
+            "user_name": user.name if user else "Anônimo",
+            "score_1": g.score_1,
+            "score_2": g.score_2
+        })
+    return resultado
+
 @app.get("/users/{user_id}")
 def get_user(user_id: int, db: Session = Depends(get_db)):
     # Busca no Banco de Dados em vez do JSON

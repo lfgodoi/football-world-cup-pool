@@ -404,6 +404,7 @@
             <ul style="padding-left: 20px; color: #333; line-height: 1.6;">
                 <li>Este é um aplicativo gratuito, destinado exclusivamente para fins de entretenimento.</li>
                 <li>Todas as funcionalidades do aplicativo são 100% gratuitas, sem qualquer exigência de pagamento.</li>
+                <li>Os resultados de todos os jogos, assim como a pontuação obtida pelo palpite de cada jogador, serão atualizados automaticamente.</li>
                 <li>O aplicativo permite a criação de grupos para o compartilhamento de palpites entre amigos. Contudo, qualquer aposta externa realizada com base nesses resultados, seja envolvendo dinheiro ou bens materiais, é de inteira responsabilidade dos usuários, sem qualquer vínculo ou envolvimento dos desenvolvedores.</li>
             </ul>
         </div>
@@ -451,6 +452,7 @@
 
     const API_URL = "http://127.0.0.1:8000";
     const USUARIO_LOGADO_ID = parseInt(rawId);
+    let currentModalMatchId = null; // Store current match ID for modal reload
 
     function authHeaders(contentType = null) {
         const headers = { Authorization: `Bearer ${SESSION_TOKEN}` };
@@ -606,21 +608,37 @@ async function loadMatches() {
     
     async function loadGroupSelector() {
         const groupSelect = document.getElementById('group-select');
+        const modalGroupSelect = document.getElementById('modal-group-select');
         
         try {
-            const response = await fetch(`${API_URL}/groups/user/${USUARIO_LOGADO_ID}`);
+            const response = await fetch(`${API_URL}/groups/user/${USUARIO_LOGADO_ID}`, { headers: authHeaders() });
             const groups = await response.json();
             
-            // Keep the "Geral" option
-            groupSelect.innerHTML = '<option value="">Geral (Todos os usuários)</option>';
-            
-            // Add user's groups
+            // Update ranking group selector
+            groupSelect.innerHTML = '';
             groups.forEach(g => {
                 const option = document.createElement('option');
                 option.value = g.id;
                 option.textContent = g.name;
                 groupSelect.appendChild(option);
             });
+            const geralOption = document.createElement('option');
+            geralOption.value = '';
+            geralOption.textContent = 'Geral (Todos os usuários)';
+            groupSelect.appendChild(geralOption);
+            
+            // Update modal group selector
+            modalGroupSelect.innerHTML = '';
+            groups.forEach(g => {
+                const option = document.createElement('option');
+                option.value = g.id;
+                option.textContent = g.name;
+                modalGroupSelect.appendChild(option);
+            });
+            const geralOptionModal = document.createElement('option');
+            geralOptionModal.value = '';
+            geralOptionModal.textContent = 'Geral (Todos os usuários)';
+            modalGroupSelect.appendChild(geralOptionModal);
         } catch (e) {
             console.error('Error loading groups for selector:', e);
         }
@@ -681,9 +699,15 @@ async function loadMatches() {
     async function openSpyModal(matchId, matchName) {
         const modal = document.getElementById('guessModal');
         const body = document.getElementById('modal-body');
+        const modalGroupSelect = document.getElementById('modal-group-select');
+        
         document.getElementById('modal-title').innerText = matchName;
         body.innerHTML = "Carregando...";
         modal.style.display = "block";
+        
+        // Store match ID for reload function and reset group selector
+        currentModalMatchId = matchId;
+        modalGroupSelect.value = '';
 
         try {
             const response = await fetch(`${API_URL}/matches/${matchId}/guesses`, { headers: authHeaders() });
@@ -700,7 +724,47 @@ async function loadMatches() {
                     <span style="font-weight:bold; color:var(--primary-color);">${p.score_1} x ${p.score_2}</span>
                 </div>
             `).join('');
-        } catch (e) { body.innerHTML = "Erro ao carregar."; }
+        } catch (e) { 
+            console.error('Error loading guesses:', e);
+            body.innerHTML = "Erro ao carregar."; 
+        }
+    }
+    
+    async function reloadModalGuesses() {
+        if (!currentModalMatchId) return;
+        
+        const body = document.getElementById('modal-body');
+        const modalGroupSelect = document.getElementById('modal-group-select');
+        const selectedGroupId = modalGroupSelect.value;
+        
+        body.innerHTML = "Carregando...";
+        
+        try {
+            let url = `${API_URL}/matches/${currentModalMatchId}/guesses`;
+            
+            // If a group is selected, use group endpoint
+            if (selectedGroupId) {
+                url = `${API_URL}/groups/${selectedGroupId}/matches/${currentModalMatchId}/guesses`;
+            }
+            
+            const response = await fetch(url, { headers: authHeaders() });
+            const palpites = await response.json();
+
+            if (palpites.length === 0) {
+                body.innerHTML = "<p style='text-align:center; color:#888;'>Ninguém palpitou.</p>";
+                return;
+            }
+
+            body.innerHTML = palpites.map(p => `
+                <div class="guess-item">
+                    <span>${p.user_name}</span>
+                    <span style="font-weight:bold; color:var(--primary-color);">${p.score_1} x ${p.score_2}</span>
+                </div>
+            `).join('');
+        } catch (e) { 
+            console.error('Error loading guesses:', e);
+            body.innerHTML = "Erro ao carregar."; 
+        }
     }
 
 async function saveGuess(matchId, inputElement) {
@@ -836,7 +900,8 @@ async function saveGuess(matchId, inputElement) {
             if (response.ok) {
                 alert('Grupo criado com sucesso!');
                 document.getElementById('new-group-name').value = '';
-                loadGroups();
+                await loadGroups();
+                await loadGroupSelector();
             } else {
                 alert(data.detail || 'Erro ao criar grupo');
             }
@@ -856,7 +921,8 @@ async function saveGuess(matchId, inputElement) {
             
             if (response.ok) {
                 alert(data.message);
-                loadGroups();
+                await loadGroups();
+                await loadGroupSelector();
             } else {
                 alert(data.detail || 'Erro ao entrar no grupo');
             }
@@ -878,7 +944,8 @@ async function saveGuess(matchId, inputElement) {
             
             if (response.ok) {
                 alert(data.message);
-                loadGroups();
+                await loadGroups();
+                await loadGroupSelector();
             } else {
                 alert(data.detail || 'Erro ao sair do grupo');
             }
@@ -900,8 +967,8 @@ async function saveGuess(matchId, inputElement) {
             
             if (response.ok) {
                 alert(data.message);
-                loadGroups();
-                loadGroupSelector();
+                await loadGroups();
+                await loadGroupSelector();
             } else {
                 alert(data.detail || 'Erro ao excluir grupo');
             }
@@ -915,6 +982,12 @@ async function saveGuess(matchId, inputElement) {
         <div class="modal-content">
             <span class="close-modal" onclick="closeModal()">&times;</span>
             <h3 id="modal-title" style="color: var(--primary-color); margin-bottom: 20px;">Palpites da Galera</h3>
+            <div class="group-selector" style="margin-bottom: 20px;">
+                <label for="modal-group-select">Filtrar por grupo:</label>
+                <select id="modal-group-select" onchange="reloadModalGuesses()">
+                    <option value="">Geral (Todos os usuários)</option>
+                </select>
+            </div>
             <div id="modal-body">
                 </div>
         </div>
