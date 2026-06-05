@@ -2,6 +2,7 @@ from fastapi import Depends, FastAPI, HTTPException, Header, status
 from fastapi.middleware.cors import CORSMiddleware
 import json
 import os
+from dotenv import load_dotenv
 import uuid
 import hashlib
 import binascii
@@ -22,12 +23,21 @@ def get_db():
 
 app = FastAPI()
 
+# Load environment and configure CORS (allows configuring Render frontend domains)
+load_dotenv()
+allowed_origins = os.getenv("ALLOWED_ORIGINS")
+if allowed_origins:
+    origins = [o.strip() for o in allowed_origins.split(",") if o.strip()]
+else:
+    origins = ["http://127.0.0.1:8080", "http://localhost:8080"]
+
 # Permite que seu Frontend acesse o Backend de forma controlada
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://127.0.0.1:8080", "http://localhost:8080"],
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type"],
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Sessões em memória para tokens de autenticação
