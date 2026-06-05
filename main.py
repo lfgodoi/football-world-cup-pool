@@ -1,5 +1,6 @@
-from fastapi import Depends, FastAPI, HTTPException, Header, status
+from fastapi import Depends, FastAPI, HTTPException, Header, status, Body
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 import json
 import os
 from dotenv import load_dotenv
@@ -10,6 +11,22 @@ import datetime
 from sqlalchemy.orm import Session
 import models
 import database
+
+# Pydantic models for request bodies
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+class RegisterRequest(BaseModel):
+    name: str
+    password: str
+    security_question: str
+    security_answer: str
+
+class ForgotPasswordRequest(BaseModel):
+    username: str
+    security_answer: str
+    new_password: str
 
 # Create the tables
 models.Base.metadata.create_all(bind=database.engine)
@@ -274,9 +291,9 @@ def get_all_users(db: Session = Depends(get_db)):
     return [{"id": u.id, "name": u.name} for u in users]
 
 @app.post("/login")
-def login(data: dict, db: Session = Depends(get_db)):
-    username = data.get('username')
-    password = data.get('password')
+def login(data: LoginRequest, db: Session = Depends(get_db)):
+    username = data.username
+    password = data.password
     if not username or not password:
         raise HTTPException(status_code=400, detail="Usuário e senha são obrigatórios")
 
