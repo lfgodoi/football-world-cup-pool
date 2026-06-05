@@ -28,14 +28,19 @@ load_dotenv()
 allowed_origins = os.getenv("ALLOWED_ORIGINS")
 if allowed_origins:
     origins = [o.strip() for o in allowed_origins.split(",") if o.strip()]
+    allow_credentials = True
 else:
-    origins = ["http://127.0.0.1:8080", "http://localhost:8080"]
+    # If ALLOWED_ORIGINS is not configured (e.g. quick deploy), allow all origins
+    # to avoid failing preflight on Render. When running in production, set
+    # ALLOWED_ORIGINS to your frontend URL(s) and credentials will be enabled.
+    origins = ["*"]
+    allow_credentials = False
 
 # Permite que seu Frontend acesse o Backend de forma controlada
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_credentials=True,
+    allow_credentials=allow_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
 )
