@@ -512,7 +512,7 @@ def get_user_groups(user_id: int, current_user: models.User = Depends(get_curren
     return groups
 
 @app.post("/groups/{group_id}/join")
-def join_group(group_id: int, data: dict, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+def join_group(group_id: int, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     group = db.query(models.Group).filter(models.Group.id == group_id).first()
     if not group:
         raise HTTPException(status_code=404, detail="Grupo não encontrado")
