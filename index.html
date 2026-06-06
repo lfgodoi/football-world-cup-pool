@@ -475,7 +475,7 @@
         console.log("Acesso permitido para o ID:", rawId);
     }
 
-    // const API_URL = 'http://127.0.0.1:8000';
+    //const API_URL = 'http://127.0.0.1:8000';
     const API_URL = 'https://football-world-cup-pool.onrender.com';
     const USUARIO_LOGADO_ID = parseInt(rawId);
     let currentModalMatchId = null; // Store current match ID for modal reload
@@ -530,10 +530,11 @@ async function loadMatches() {
         let matches = await resMatches.json();
         const meusPalpites = await resGuesses.json(); 
         
+        // --- ORDENAÇÃO POR TIMESTAMPS (Do mais antigo para o mais recente) ---
         matches.sort((a, b) => {
             return new Date(a.kickoff.replace(/-/g, "/")) - new Date(b.kickoff.replace(/-/g, "/"));
         });
-
+        
         const agora = new Date();
         container.innerHTML = '';
 
@@ -545,23 +546,24 @@ async function loadMatches() {
             const s1 = palpite ? palpite.score_1 : "";
             const s2 = palpite ? palpite.score_2 : "";
 
-            // Tratamento de Data e Bloqueio
+            // Tratamento de Data
             const dataObjeto = new Date(match.kickoff.replace(/-/g, "/"));
             const dataFormatada = dataObjeto.toLocaleString('pt-BR', {
                 day: '2-digit', month: '2-digit', year: 'numeric',
                 hour: '2-digit', minute: '2-digit'
             });
 
-            const bloqueado = (dataObjeto - agora) < (60 * 60 * 1000);
-
             // --- LÓGICA DO RESULTADO REAL E PONTOS ---
-            // Verifica se a propriedade existe no objeto retornado pela API
             const temResultado = (match.score_1 !== undefined && match.score_1 !== null) || 
                                  (match.real_score_1 !== undefined && match.real_score_1 !== null);
             
             const res1 = match.score_1 ?? match.real_score_1;
             const res2 = match.score_2 ?? match.real_score_2;
-            
+
+            // --- REGRA DE BLOQUEIO ATUALIZADA ---
+            // Bloqueia se faltar menos de 1 hora para o jogo OU se já houver um resultado real definido
+            const bloqueado = ((dataObjeto - agora) < (60 * 60 * 1000)) || temResultado;
+
             let resultadoTexto = "- x -";
             let pontosTexto = "Jogo não realizado";
             let badgeClass = "badge-neutral";
@@ -569,7 +571,6 @@ async function loadMatches() {
             if (temResultado) {
                 resultadoTexto = `${res1} x ${res2}`;
                 
-                // Se o usuário deixou em branco, não ganha pontos
                 if (s1 === "" || s2 === "") {
                     pontosTexto = "Sem palpite (0 pts)";
                     badgeClass = "badge-zero";
@@ -596,7 +597,7 @@ async function loadMatches() {
             card.className = 'match-card';
             card.innerHTML = `
                 <div class="match-header">
-                    <span>📅 ${dataFormatada} ${bloqueado ? '<b style="color:#e74c3c">(Bloqueado)</b>' : ''}</span>
+                    <span>📅 ${dataFormatada} ${bloqueado ? '<b style="color:#e74c3c">(Encerrado)</b>' : ''}</span>
                     <div style="display: flex; align-items: center; gap: 10px;">
                         <span>📍 ${match.location || 'Local não definido'}</span>
                         <button class="spy-btn" onclick="openSpyModal(${mId}, '${match.team_1} x ${match.team_2}')" title="Ver palpites de outros">
