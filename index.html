@@ -310,6 +310,29 @@
             justify-content: center;
             min-width: 130px; /* Garante que o centro tenha sempre o mesmo tamanho */
         }
+/* Container do resultado real dentro do card */
+.match-footer-results {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 15px;
+    padding-top: 10px;
+    border-top: 1px dashed #eee;
+    font-size: 0.85rem;
+    color: #555;
+}
+
+/* Badges de pontuação */
+.points-badge {
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 0.8rem;
+}
+.badge-neutral { background-color: #f0f0f0; color: #777; }
+.badge-three { background-color: #d4edda; color: #155724; } /* Verde para placar exato */
+.badge-one { background-color: #fff3cd; color: #856404; }   /* Amarelo para vencedor/empate */
+.badge-zero { background-color: #f8d7da; color: #721c24; }  /* Vermelho para erro */
     </style>
 </head>
 <body>
@@ -452,6 +475,7 @@
         console.log("Acesso permitido para o ID:", rawId);
     }
 
+    // const API_URL = 'http://127.0.0.1:8000';
     const API_URL = 'https://football-world-cup-pool.onrender.com';
     const USUARIO_LOGADO_ID = parseInt(rawId);
     let currentModalMatchId = null; // Store current match ID for modal reload
@@ -503,18 +527,20 @@ async function loadMatches() {
 
         if (!resMatches.ok || !resGuesses.ok) throw new Error("Erro ao buscar dados do servidor");
 
-        const matches = await resMatches.json();
+        let matches = await resMatches.json();
         const meusPalpites = await resGuesses.json(); 
         
+        matches.sort((a, b) => {
+            return new Date(a.kickoff.replace(/-/g, "/")) - new Date(b.kickoff.replace(/-/g, "/"));
+        });
+
         const agora = new Date();
         container.innerHTML = '';
 
         matches.forEach(match => {
-            // Ajuste: O SQLAlchemy geralmente usa 'id', mas o seu JSON usava 'match_id'
-            // Usamos || para garantir que funcione com qualquer um dos dois
             const mId = match.id || match.match_id;
 
-            // Busca o palpite correspondente
+            // Busca o palpite do usuário para este jogo
             const palpite = meusPalpites.find(g => g.match_id === mId);
             const s1 = palpite ? palpite.score_1 : "";
             const s2 = palpite ? palpite.score_2 : "";
@@ -526,8 +552,45 @@ async function loadMatches() {
                 hour: '2-digit', minute: '2-digit'
             });
 
-            // Regra: Bloqueia se faltar menos de 1 hora para o jogo
             const bloqueado = (dataObjeto - agora) < (60 * 60 * 1000);
+
+            // --- LÓGICA DO RESULTADO REAL E PONTOS ---
+            // Verifica se a propriedade existe no objeto retornado pela API
+            const temResultado = (match.score_1 !== undefined && match.score_1 !== null) || 
+                                 (match.real_score_1 !== undefined && match.real_score_1 !== null);
+            
+            const res1 = match.score_1 ?? match.real_score_1;
+            const res2 = match.score_2 ?? match.real_score_2;
+            
+            let resultadoTexto = "- x -";
+            let pontosTexto = "Jogo não realizado";
+            let badgeClass = "badge-neutral";
+
+            if (temResultado) {
+                resultadoTexto = `${res1} x ${res2}`;
+                
+                // Se o usuário deixou em branco, não ganha pontos
+                if (s1 === "" || s2 === "") {
+                    pontosTexto = "Sem palpite (0 pts)";
+                    badgeClass = "badge-zero";
+                } else {
+                    let pontos = 0;
+                    const p1 = parseInt(s1);
+                    const p2 = parseInt(s2);
+
+                    if (p1 === res1 && p2 === res2) {
+                        pontos = 3;
+                        badgeClass = "badge-three";
+                    } else if ((p1 > p2 && res1 > res2) || (p1 < p2 && res1 < res2) || (p1 === p2 && res1 === res2)) {
+                        pontos = 1;
+                        badgeClass = "badge-one";
+                    } else {
+                        badgeClass = "badge-zero";
+                    }
+                    
+                    pontosTexto = `Ganhou ${pontos} ${pontos === 1 ? 'ponto' : 'pontos'}`;
+                }
+            }
 
             const card = document.createElement('div');
             card.className = 'match-card';
@@ -553,6 +616,11 @@ async function loadMatches() {
                             onchange="saveGuess(${mId}, this)">
                     </div>
                     <div class="team">${match.team_2}</div>
+                </div>
+                
+                <div class="match-footer-results">
+                    <span>Resultado Real: <b>${resultadoTexto}</b></span>
+                    <span class="points-badge ${badgeClass}">${pontosTexto}</span>
                 </div>`;
             container.appendChild(card);
         });
