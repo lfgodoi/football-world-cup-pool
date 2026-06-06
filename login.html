@@ -87,7 +87,13 @@ select {
                 Digite seu nome de usuário e resposta à pergunta de segurança para criar uma nova senha.
             </p>
             
-            <input type="text" id="fp-username" placeholder="Nome de Usuário" onchange="loadSecurityQuestion()">
+            <input type="text" id="fp-username" placeholder="Nome de Usuário">
+            <button
+                type="button"
+                onclick="loadSecurityQuestion()"
+                style="margin-top:10px;">
+                Prosseguir
+            </button>
             <p id="fp-question-display" style="font-size: 14px; color: #333; margin: 10px 0; display: none;"></p>
             <input type="text" id="fp-security-answer" placeholder="Resposta da pergunta de segurança" style="display: none;">
             <input type="password" id="fp-new-password" placeholder="Nova Senha" style="display: none;">
