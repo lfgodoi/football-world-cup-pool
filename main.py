@@ -654,3 +654,15 @@ def get_group_ranking(group_id: int, db: Session = Depends(get_db)):
         ranking.append({"name": user.name, "points": points})
     
     return sorted(ranking, key=lambda x: x['points'], reverse=True)
+
+
+@app.get("/health", status_code=status.HTTP_200_OK)
+def health_check():
+    """
+    Endpoint simples para monitoramento de integridade (Health Check).
+    Usado pelo UptimeRobot para garantir que a aplicação está ativa.
+    """
+    return {
+        "status": "healthy",
+        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
+    }
