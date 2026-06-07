@@ -526,6 +526,18 @@ async function loadMatches() {
             fetch(`${API_URL}/guesses/${USUARIO_LOGADO_ID}`, { headers: authHeaders() })
         ]);
 
+        // Sessão inválida/expirada
+        if (resMatches.status === 401 || resGuesses.status === 401) {
+            alert("Sua sessão expirou. Faça login novamente.");
+
+            localStorage.removeItem("user_id");
+            localStorage.removeItem("user_name");
+            localStorage.removeItem("session_token");
+
+            window.location.href = "login.html";
+            return;
+        }
+
         if (!resMatches.ok || !resGuesses.ok) throw new Error("Erro ao buscar dados do servidor");
 
         let matches = await resMatches.json();
