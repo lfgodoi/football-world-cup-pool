@@ -6,66 +6,113 @@
     <title>Acesso - Bolão Copa 2026</title>
     <style>
         body {
-    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    background: #f0f2f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0;
-}
-        .auth-card { background: white; padding: 40px; border-radius: 16px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); width: 350px; text-align: center; transition: all 0.3s ease; }
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: #f0f2f5; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            margin: 0;
+        }
+        .auth-card { 
+            background: white; 
+            padding: 40px; 
+            border-radius: 16px; 
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1); 
+            width: 350px; 
+            text-align: center; 
+            transition: all 0.3s ease; 
+        }
         .auth-logo {
-    display: block;
-    margin: 0 auto 20px; /* Centraliza horizontalmente e dá margem inferior de 20px */
-    max-width: 100px;        /* Controla a largura máxima do seu logo (ajuste se precisar) */
-    height: auto;            /* Mantém a proporção da imagem */
-}
+            display: block;
+            margin: 0 auto 20px; 
+            max-width: 100px;        
+            height: auto;            
+        }
         h2 { color: #1a2a3a; margin-bottom: 25px; font-weight: 700; }
-        input { width: 100%; padding: 14px; margin: 8px 0; border: 1px solid #e0e0e0; border-radius: 8px; box-sizing: border-box; font-size: 14px; transition: border 0.3s; }
+        input { 
+            width: 100%; 
+            padding: 14px; 
+            margin: 8px 0; 
+            border: 1px solid #e0e0e0; 
+            border-radius: 8px; 
+            box-sizing: border-box; 
+            font-size: 14px; 
+            transition: border 0.3s; 
+        }
         input:focus { border-color: #27ae60; outline: none; }
         
-select {
-    width: 100%;
-    padding: 14px;
-    margin: 8px 0;
-    border: 1px solid #e0e0e0;
-    border-radius: 8px;
-    background: white;
-    font-size: 14px;
-    color: #333;
-}
-#register-fields { 
-    max-height: 0; 
-    overflow: hidden; 
-    transition: max-height 0.5s ease-in-out; 
-}
-#register-fields.active { 
-    max-height: 200px; /* Aumentado para caber o select e o input */
-}
+        select {
+            width: 100%;
+            padding: 14px;
+            margin: 8px 0;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            background: white;
+            font-size: 14px;
+            color: #333;
+        }
+        #register-fields { 
+            max-height: 0; 
+            overflow: hidden; 
+            transition: max-height 0.5s ease-in-out; 
+        }
+        #register-fields.active { 
+            max-height: 200px; 
+        }
 
-        button { width: 100%; padding: 14px; background: #27ae60; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: bold; margin-top: 15px; transition: background 0.3s; }
+        button { 
+            width: 100%; 
+            padding: 14px; 
+            background: #27ae60; 
+            color: white; 
+            border: none; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            font-size: 16px; 
+            font-weight: bold; 
+            margin-top: 15px; 
+            transition: background 0.3s; 
+        }
         button:hover { background: #219150; }
         
         .toggle-text { margin-top: 20px; font-size: 14px; color: #666; }
         .toggle-text a { color: #27ae60; text-decoration: none; font-weight: bold; }
         .toggle-text a:hover { text-decoration: underline; }
+
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
     </style>
 </head>
 <body>
     <div class="auth-card">
         <img src="logo.png" alt="Logo Bolão Copa 2026" class="auth-logo">
-        <h2 id="auth-title">BOLÃO DA COPA DO MUNDO 2026</h2>
+        <h2 id="auth-title">🏆 Bolão 2026</h2>
         
         <input type="text" id="username" placeholder="Nome de Usuário">
         <input type="password" id="password" placeholder="Senha">
         
-<div id="register-fields">
-    <select id="security_question">
-        <option value="" disabled selected>Escolha uma pergunta de segurança</option>
-        <option value="Nome do seu primeiro pet?">Nome do seu primeiro pet?</option>
-        <option value="Cidade onde seus pais se conheceram?">Cidade onde seus pais se conheceram?</option>
-        <option value="Nome da sua primeira escola?">Nome da sua primeira escola?</option>
-        <option value="Sua comida favorita na infância?">Sua comida favorita na infância?</option>
-        <option value="Modelo do seu primeiro carro?">Modelo do seu primeiro carro?</option>
-    </select>
-    <input type="text" id="security_answer" placeholder="Sua resposta">
-</div>
+        <div id="register-fields">
+            <select id="security_question">
+                <option value="" disabled selected>Escolha uma pergunta de segurança</option>
+                <option value="Nome do seu primeiro pet?">Nome do seu primeiro pet?</option>
+                <option value="Cidade onde seus pais se conheceram?">Cidade onde seus pais se conheceram?</option>
+                <option value="Nome da sua primeira escola?">Nome da sua primeira escola?</option>
+                <option value="Sua comida favorita na infância?">Sua comida favorita na infância?</option>
+                <option value="Modelo do seu primeiro carro?">Modelo do seu primeiro carro?</option>
+            </select>
+            <input type="text" id="security_answer" placeholder="Sua resposta">
+        </div>
 
         <button id="auth-btn" onclick="handleAuth()">Entrar</button>
         
@@ -74,12 +121,11 @@ select {
             <a href="javascript:void(0)" id="toggle-link" onclick="toggleMode()">Criar conta</a>
         </p>
         
-        <p class="toggle-text" id="forgot-password-link" style="display: none;">
+        <p class="toggle-text" id="forgot-password-link" style="display: block;">
             <a href="javascript:void(0)" onclick="showForgotPassword()">Esqueceu a senha?</a>
         </p>
     </div>
 
-    <!-- Modal de Recuperação de Senha -->
     <div id="forgot-modal" class="modal" style="display: none;">
         <div class="auth-card">
             <h2>🔐 Recuperar Senha</h2>
@@ -88,10 +134,7 @@ select {
             </p>
             
             <input type="text" id="fp-username" placeholder="Nome de Usuário">
-            <button
-                type="button"
-                onclick="loadSecurityQuestion()"
-                style="margin-top:10px;">
+            <button type="button" onclick="loadSecurityQuestion()" style="margin-top:10px;">
                 Confirmar usuário
             </button>
             <p id="fp-question-display" style="font-size: 14px; color: #333; margin: 10px 0; display: none;"></p>
@@ -104,29 +147,18 @@ select {
         </div>
     </div>
 
-<audio id="bg-music" src="assets/background_song.mp3" loop prefetch="auto"></audio>
+    <audio id="bg-music" src="assets/background_song.mp3" loop prefetch="auto"></audio>
 
-<style>
-    .modal {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0,0,0,0.5);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        z-index: 1000;
-    }
-</style>
-
-<script>
+    <script>
         //const API_URL = 'http://127.0.0.1:8000';
         const API_URL = 'https://football-world-cup-pool.onrender.com';
         let isRegisterMode = false;
 
-        initBackgroundMusic();
+        // INICIALIZAÇÃO SEGURA DA PÁGINA
+        window.onload = () => {
+            initBackgroundMusic();
+            updateForgotPasswordLink();
+        };
 
         function toggleMode() {
             isRegisterMode = !isRegisterMode;
@@ -149,13 +181,19 @@ select {
                 link.innerText = "Criar conta";
                 regFields.classList.remove('active');
             }
+            updateForgotPasswordLink();
+        }
+
+        function updateForgotPasswordLink() {
+            const link = document.getElementById('forgot-password-link');
+            if (link) {
+                link.style.display = isRegisterMode ? 'none' : 'block';
+            }
         }
 
         async function handleAuth() {
             const user = document.getElementById('username').value;
             const pass = document.getElementById('password').value;
-            
-            // Campos de segurança
             const question = document.getElementById('security_question').value;
             const answer = document.getElementById('security_answer') ? document.getElementById('security_answer').value : "";
 
@@ -205,20 +243,14 @@ select {
                 const response = await fetch(`${API_URL}/register`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ 
-                        name, 
-                        password, 
-                        security_question, 
-                        security_answer 
-                    })
+                    body: JSON.stringify({ name, password, security_question, security_answer })
                 });
 
                 const data = await response.json();
 
                 if (response.ok) {
                     alert("Conta criada com sucesso! Agora você já pode entrar.");
-                    toggleMode(); // Volta automaticamente para o modo de login
-                    // Limpa os campos de segurança para privacidade
+                    toggleMode(); 
                     document.getElementById('security_answer').value = "";
                 } else {
                     alert(data.detail || "Erro ao criar conta. Tente outro nome de usuário.");
@@ -229,11 +261,8 @@ select {
             }
         }
 
-        // --- Funções de Recuperação de Senha ---
-        
         function showForgotPassword() {
             document.getElementById('forgot-modal').style.display = 'flex';
-            // Limpa os campos
             document.getElementById('fp-username').value = '';
             document.getElementById('fp-security-answer').value = '';
             document.getElementById('fp-new-password').value = '';
@@ -254,15 +283,11 @@ select {
             if (!username) return;
 
             try {
-                // Primeiro, busca o usuário para obter a pergunta de segurança
                 const response = await fetch(`${API_URL}/users`);
                 const users = await response.json();
-                
-                // Procura o usuário pelo nome
                 const user = users.find(u => u.name.toLowerCase() === username.toLowerCase());
                 
                 if (user) {
-                    // Busca os detalhes do usuário com a pergunta
                     const userDetail = await fetch(`${API_URL}/users/${user.id}`);
                     const userData = await userDetail.json();
                     
@@ -276,11 +301,6 @@ select {
                     }
                 } else {
                     alert("Usuário não encontrado!");
-                    document.getElementById('fp-question-display').style.display = 'none';
-                    document.getElementById('fp-security-answer').style.display = 'none';
-                    document.getElementById('fp-new-password').style.display = 'none';
-                    document.getElementById('fp-confirm-password').style.display = 'none';
-                    document.getElementById('fp-btn').style.display = 'none';
                 }
             } catch (e) {
                 console.error(e);
@@ -304,20 +324,11 @@ select {
                 return;
             }
 
-            if (newPassword.length < 4) {
-                alert("A senha deve ter pelo menos 4 caracteres!");
-                return;
-            }
-
             try {
                 const response = await fetch(`${API_URL}/forgot_password`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ 
-                        username, 
-                        security_answer: securityAnswer,
-                        new_password: newPassword
-                    })
+                    body: JSON.stringify({ username, security_answer: securityAnswer, new_password: newPassword })
                 });
 
                 const data = await response.json();
@@ -334,55 +345,31 @@ select {
             }
         }
 
-        // Controla a visibilidade do link "Esqueceu a senha?"
-        function updateForgotPasswordLink() {
-            const link = document.getElementById('forgot-password-link');
-            if (isRegisterMode) {
-                link.style.display = 'none';
-            } else {
-                link.style.display = 'block';
-            }
+        // ==================== BACKGROUND MUSIC CONTROL ====================
+        function initBackgroundMusic() {
+            const music = document.getElementById('bg-music');
+            if (!music) return;
+
+            music.volume = 0.2; 
+
+            const startAudio = () => {
+                music.play()
+                    .then(() => {
+                        console.log("Background music started successfully!");
+                        document.removeEventListener('click', startAudio);
+                        document.removeEventListener('keydown', startAudio);
+                    })
+                    .catch(error => {
+                        console.log("Audio autoplay blocked by browser, waiting for user interaction.", error);
+                    });
+            };
+
+            startAudio();
+
+            // Ativa o som no primeiro clique do usuário na tela de login
+            document.addEventListener('click', startAudio);
+            document.addEventListener('keydown', startAudio);
         }
-
-        // Modifica o toggleMode para também atualizar o link
-        const originalToggleMode = toggleMode;
-        toggleMode = function() {
-            originalToggleMode();
-            updateForgotPasswordLink();
-        };
-
-        // Inicializa a visibilidade do link
-        updateForgotPasswordLink();
-
-// ==================== BACKGROUND MUSIC CONTROL ====================
-function initBackgroundMusic() {
-    const music = document.getElementById('bg-music');
-    if (!music) return;
-
-    // Set lower background volume so it doesn't blast the user (scale 0.0 to 1.0)
-    music.volume = 0.2; 
-
-    // Function that attempts to play audio
-    const startAudio = () => {
-        music.play()
-            .then(() => {
-                console.log("Background music started successfully!");
-                // Remove listeners once audio successfully unblocked and playing
-                document.removeEventListener('click', startAudio);
-                document.removeEventListener('keydown', startAudio);
-            })
-            .catch(error => {
-                console.log("Audio autoplay blocked by browser, waiting for user interaction.", error);
-            });
-    };
-
-    // Try playing immediately (might work if user came from login click)
-    startAudio();
-
-    // Fallback: Trigger play on the absolute first user interaction anywhere on the screen
-    document.addEventListener('click', startAudio);
-    document.addEventListener('keydown', startAudio);
-}
     </script>
 </body>
 </html>
