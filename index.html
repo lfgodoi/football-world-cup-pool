@@ -461,6 +461,8 @@
     </div>
 </div>
 
+<audio id="bg-music" src="assets/background_song.mp3" loop prefetch="auto"></audio>
+
 <script>
     // 1. CONFIGURAÇÕES GLOBAIS E AUTENTICAÇÃO
 // 1. Verificação de Autenticação com Debug
@@ -898,6 +900,7 @@ async function saveGuess(matchId, inputElement) {
         loadUserProfile();
         loadGroupSelector();
         loadGroups();
+        initBackgroundMusic();
     };
     
     // ==================== GRUPOS ====================
@@ -1060,6 +1063,36 @@ async function saveGuess(matchId, inputElement) {
             alert('Erro ao conectar no servidor!');
         }
     }
+
+// ==================== BACKGROUND MUSIC CONTROL ====================
+function initBackgroundMusic() {
+    const music = document.getElementById('bg-music');
+    if (!music) return;
+
+    // Set lower background volume so it doesn't blast the user (scale 0.0 to 1.0)
+    music.volume = 0.2; 
+
+    // Function that attempts to play audio
+    const startAudio = () => {
+        music.play()
+            .then(() => {
+                console.log("Background music started successfully!");
+                // Remove listeners once audio successfully unblocked and playing
+                document.removeEventListener('click', startAudio);
+                document.removeEventListener('keydown', startAudio);
+            })
+            .catch(error => {
+                console.log("Audio autoplay blocked by browser, waiting for user interaction.", error);
+            });
+    };
+
+    // Try playing immediately (might work if user came from login click)
+    startAudio();
+
+    // Fallback: Trigger play on the absolute first user interaction anywhere on the screen
+    document.addEventListener('click', startAudio);
+    document.addEventListener('keydown', startAudio);
+}
 </script>
 
     <div id="guessModal" class="modal">
