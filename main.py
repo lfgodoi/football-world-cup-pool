@@ -11,6 +11,7 @@ import datetime
 from sqlalchemy.orm import Session
 import models
 import database
+from zoneinfo import ZoneInfo
 
 # Pydantic models for request bodies
 class LoginRequest(BaseModel):
@@ -114,9 +115,19 @@ def get_current_user(authorization: str = Header(None), db: Session = Depends(ge
 def match_has_started(match) -> bool:
     if not match.kickoff:
         return False
+
     try:
         kickoff_time = datetime.datetime.fromisoformat(match.kickoff)
-        return datetime.datetime.utcnow() >= kickoff_time
+
+        if kickoff_time.tzinfo is None:
+            kickoff_time = kickoff_time.replace(
+                tzinfo=ZoneInfo("America/Sao_Paulo")
+            )
+
+        return datetime.datetime.now(
+            ZoneInfo("America/Sao_Paulo")
+        ) >= kickoff_time
+
     except ValueError:
         return False
 
