@@ -425,8 +425,8 @@
         <div class="info-container" style="margin-top: 25px; padding: 20px; background: #ffffff; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.04);">
             <h3 style="margin-top:0;">Informações importantes</h3>
             <ul style="padding-left: 20px; color: #333; line-height: 1.6;">
-                <li>Palpites poderão ser enviados somente até uma hora antes do início do jogo.</li>
-                <li>O resultado de cada jogo, assim como a pontuação obtida pelo palpite de cada jogador, serão atualizados automaticamente em um prazo de até uma hora após o término do jogo.</li>
+                <li>Palpites poderão ser enviados somente até 10 minutos antes do início do jogo.</li>
+                <li>O resultado de cada jogo, assim como a pontuação obtida pelo palpite de cada jogador, serão atualizados automaticamente em um prazo de até duas horas após o término do jogo.</li>
                 <li>Este é um aplicativo gratuito, destinado exclusivamente para fins de entretenimento.</li>
                 <li>Todas as funcionalidades do aplicativo são 100% gratuitas, sem qualquer exigência de pagamento.</li>
                 <li>O aplicativo permite a criação de grupos para o compartilhamento de palpites entre amigos. Contudo, qualquer aposta externa realizada com base nesses resultados, seja envolvendo dinheiro ou bens materiais, é de inteira responsabilidade dos usuários, sem qualquer vínculo ou envolvimento do desenvolvedor.</li>
@@ -577,7 +577,7 @@ async function loadMatches() {
 
             // --- REGRA DE BLOQUEIO ATUALIZADA ---
             // Bloqueia se faltar menos de 1 hora para o jogo OU se já houver um resultado real definido
-            const bloqueado = ((dataObjeto - agora) < (60 * 60 * 1000)) || temResultado;
+            const bloqueado = ((dataObjeto - agora) < (10 * 60 * 1000)) || temResultado;
 
             let resultadoTexto = "- x -";
             let pontosTexto = "Jogo não realizado";
