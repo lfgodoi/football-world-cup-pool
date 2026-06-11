@@ -86,7 +86,7 @@ def create_session(user_id: int) -> str:
     token = uuid.uuid4().hex
     SESSIONS[token] = {
         "user_id": user_id,
-        "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat()
+        "created_at": datetime.datetime.utcnow().isoformat()
     }
     return token
 
@@ -116,7 +116,7 @@ def match_has_started(match) -> bool:
         return False
     try:
         kickoff_time = datetime.datetime.fromisoformat(match.kickoff)
-        return datetime.datetime.now(datetime.timezone.utc) >= kickoff_time
+        return datetime.datetime.utcnow() >= kickoff_time
     except ValueError:
         return False
 
