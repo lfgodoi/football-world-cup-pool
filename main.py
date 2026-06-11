@@ -677,3 +677,36 @@ def health_check():
         "status": "healthy",
         "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
     }
+
+
+@app.get("/admin/set_result/{match_id}")
+def admin_set_match_result(match_id: int, score_1: int, score_2: int, db: Session = Depends(get_db)):
+    """
+    Quick admin endpoint to update a match score directly via the browser address bar.
+    Example: https://your-backend.onrender.com/admin/set_result/12?score_1=3&score_2=1
+    """
+    # 1. Find the match
+    match = db.query(models.Match).filter(models.Match.id == match_id).first()
+    if not match:
+        raise HTTPException(
+            status_code=404, 
+            detail=f"Partida com ID {match_id} não foi encontrada."
+        )
+
+    # 2. Update the fields
+    match.score_1 = score_1
+    match.score_2 = score_2
+
+    try:
+        db.commit()
+        db.refresh(match)
+        return {
+            "status": "success",
+            "message": f"Resultado atualizado! {match.team_1} {match.score_1} X {match.score_2} {match.team_2}"
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Erro ao salvar no banco de dados: {str(e)}"
+        )
