@@ -652,47 +652,60 @@ async function loadMatches() {
     }
 }
 
-    async function loadRanking() {
-        const body = document.getElementById('ranking-body');
-        const groupSelect = document.getElementById('group-select');
-        const selectedGroupId = groupSelect.value;
+async function loadRanking() {
+    const body = document.getElementById('ranking-body');
+    const groupSelect = document.getElementById('group-select');
+    const selectedGroupId = groupSelect.value;
+    
+    try {
+        let url = `${API_URL}/ranking`;
+        let rankingData;
         
-        try {
-            let url = `${API_URL}/ranking`;
-            let rankingData;
-            
-            // If a group is selected, use group ranking
-            if (selectedGroupId) {
-                url = `${API_URL}/groups/${selectedGroupId}/ranking`;
-            }
-            
-            const response = await fetch(url, { headers: authHeaders() });
-            rankingData = await response.json();
-            
-            body.innerHTML = '';
-            if (rankingData.length === 0) {
-                body.innerHTML = '<tr><td colspan="3" style="text-align:center;">Nenhum palpite encontrado</td></tr>';
-                return;
-            }
-            
-            rankingData.forEach((user, index) => {
-                let posLabel = (index + 1) + 'º';
-                if (index === 0) posLabel = '🥇';
-                if (index === 1) posLabel = '🥈';
-                if (index === 2) posLabel = '🥉';
-
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td class="pos">${posLabel}</td>
-                    <td>${user.name}</td>
-                    <td class="points">${user.points}</td>
-                `;
-                body.appendChild(tr);
-            });
-        } catch (e) {
-            body.innerHTML = "<tr><td colspan='3'>Erro ao carregar ranking</td></tr>";
+        if (selectedGroupId) {
+            url = `${API_URL}/groups/${selectedGroupId}/ranking`;
         }
+        
+        const response = await fetch(url, { headers: authHeaders() });
+        rankingData = await response.json();
+        
+        body.innerHTML = '';
+        if (rankingData.length === 0) {
+            body.innerHTML = '<tr><td colspan="3" style="text-align:center;">Nenhum palpite encontrado</td></tr>';
+            return;
+        }
+        
+        // --- Tie-handling Variables ---
+        let currentPos = 1;
+        let prevPoints = null;
+        
+        rankingData.forEach((user, index) => {
+            // If it's not the first user AND points are different,
+            // update the position to match the current 1-based index.
+            if (index > 0 && user.points !== prevPoints) {
+                currentPos = index + 1;
+            }
+            
+            // Save current points for the next iteration comparison
+            prevPoints = user.points;
+
+            // Assign labels based on the calculated currentPos
+            let posLabel = currentPos + 'º';
+            if (currentPos === 1) posLabel = '🥇';
+            if (currentPos === 2) posLabel = '🥈';
+            if (currentPos === 3) posLabel = '🥉';
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="pos">${posLabel}</td>
+                <td>${user.name}</td>
+                <td class="points">${user.points}</td>
+            `;
+            body.appendChild(tr);
+        });
+    } catch (e) {
+        body.innerHTML = "<tr><td colspan='3'>Erro ao carregar ranking</td></tr>";
     }
+}
     
     async function loadGroupSelector() {
         const groupSelect = document.getElementById('group-select');
