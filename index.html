@@ -530,14 +530,11 @@ async function loadMatches() {
             fetch(`${API_URL}/guesses/${USUARIO_LOGADO_ID}`, { headers: authHeaders() })
         ]);
 
-        // Sessão inválida/expirada
         if (resMatches.status === 401 || resGuesses.status === 401) {
             alert("Sua sessão expirou. Faça login novamente.");
-
             localStorage.removeItem("user_id");
             localStorage.removeItem("user_name");
             localStorage.removeItem("session_token");
-
             window.location.href = "login.html";
             return;
         }
@@ -547,7 +544,6 @@ async function loadMatches() {
         let matches = await resMatches.json();
         const meusPalpites = await resGuesses.json(); 
         
-        // --- ORDENAÇÃO POR TIMESTAMPS (Do mais antigo para o mais recente) ---
         matches.sort((a, b) => {
             return new Date(a.kickoff.replace(/-/g, "/")) - new Date(b.kickoff.replace(/-/g, "/"));
         });
@@ -555,30 +551,27 @@ async function loadMatches() {
         const agora = new Date();
         container.innerHTML = '';
 
+        // --- Track the first unplayed match card ---
+        let firstUnplayedCardId = null;
+
         matches.forEach(match => {
             const mId = match.id || match.match_id;
-
-            // Busca o palpite do usuário para este jogo
             const palpite = meusPalpites.find(g => g.match_id === mId);
             const s1 = palpite ? palpite.score_1 : "";
             const s2 = palpite ? palpite.score_2 : "";
 
-            // Tratamento de Data
             const dataObjeto = new Date(match.kickoff.replace(/-/g, "/"));
             const dataFormatada = dataObjeto.toLocaleString('pt-BR', {
                 day: '2-digit', month: '2-digit', year: 'numeric',
                 hour: '2-digit', minute: '2-digit'
             });
 
-            // --- LÓGICA DO RESULTADO REAL E PONTOS ---
             const temResultado = (match.score_1 !== undefined && match.score_1 !== null) || 
                                  (match.real_score_1 !== undefined && match.real_score_1 !== null);
             
             const res1 = match.score_1 ?? match.real_score_1;
             const res2 = match.score_2 ?? match.real_score_2;
 
-            // --- REGRA DE BLOQUEIO ATUALIZADA ---
-            // Bloqueia se faltar menos de 1 hora para o jogo OU se já houver um resultado real definido
             const bloqueado = ((dataObjeto - agora) < (10 * 60 * 1000)) || temResultado;
 
             let resultadoTexto = "- x -";
@@ -612,6 +605,13 @@ async function loadMatches() {
 
             const card = document.createElement('div');
             card.className = 'match-card';
+            
+            // --- Assign an ID to the card if it's the first one without a result ---
+            if (!temResultado && !firstUnplayedCardId) {
+                firstUnplayedCardId = `next-match-${mId}`;
+                card.id = firstUnplayedCardId;
+            }
+
             card.innerHTML = `
                 <div class="match-header">
                     <span>📅 ${dataFormatada} ${bloqueado ? '<b style="color:#e74c3c">(Encerrado)</b>' : ''}</span>
@@ -642,6 +642,15 @@ async function loadMatches() {
                 </div>`;
             container.appendChild(card);
         });
+
+        // --- Scroll the element smoothly into view if it exists ---
+        if (firstUnplayedCardId) {
+            const activeCard = document.getElementById(firstUnplayedCardId);
+            if (activeCard) {
+                activeCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+
     } catch (e) { 
         console.error("Erro no loadMatches:", e);
         container.innerHTML = `
