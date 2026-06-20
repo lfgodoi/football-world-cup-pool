@@ -77,7 +77,8 @@
             padding: 0 20px;
         }
 
-        header { text-align: center; margin-bottom: 40px; }
+        header { text-align: center; padding: 15px 0 20px 0;
+    margin-bottom: 0;}
         h1 { color: var(--primary-color); font-size: 2.2rem; margin-bottom: 5px; text-transform: uppercase; }
 
         .tab-content { display: none; animation: fadeIn 0.4s ease; }
@@ -335,11 +336,20 @@
 .badge-three { background-color: #d4edda; color: #155724; } /* Verde para placar exato */
 .badge-one { background-color: #fff3cd; color: #856404; }   /* Amarelo para vencedor/empate */
 .badge-zero { background-color: #f8d7da; color: #721c24; }  /* Vermelho para erro */
+
+.sticky-top-wrapper {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    background-color: var(--bg-color);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
     </style>
 </head>
 <body>
 
-<nav>
+    <div class="sticky-top-wrapper">
+    <nav>
     <button class="tab-button active" onclick="openTab(event, 'palpites')" title="Meus Palpites">
         <i class="fa-solid fa-pen-to-square"></i>
     </button>
@@ -357,7 +367,6 @@
         <i class="fa-solid fa-right-from-bracket"></i>
     </button>
 </nav>
-
 <div class="container">
     <header>
         <h1>Bolão da Copa do Mundo</h1>
@@ -461,6 +470,7 @@
             <button class="save-btn" onclick="updateProfile()">Salvar alterações</button>
         </div>
     </div>
+</div>
 </div>
 
 <audio id="bg-music" src="assets/background_song.mp3" loop prefetch="auto"></audio>
