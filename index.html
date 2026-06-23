@@ -827,7 +827,9 @@ async function loadRanking() {
         const body = document.getElementById('modal-body');
         const modalGroupSelect = document.getElementById('modal-group-select');
         
-        document.getElementById('modal-title').innerText = matchName;
+        // Atualiza o título adicionando o ID entre parênteses
+        document.getElementById('modal-title').innerText = `${matchName} (ID: ${matchId})`;
+        
         body.innerHTML = "Carregando...";
         modal.style.display = "block";
         
