@@ -943,7 +943,7 @@ async function saveGuess(matchId, inputElement) {
         loadGroupSelector();
         loadGroups();
         initBackgroundMusic();
-        // openDomainModal();
+        openDomainModal();
     };
     
     // ==================== GRUPOS ====================
@@ -1165,13 +1165,10 @@ function closeDomainModal() {
     <div class="modal-content" style="text-align: center; max-width: 450px; border-top: 6px solid var(--accent-color);">
         <h3 style="color: var(--primary-color); margin-bottom: 15px;">📢 Novidade no Bolão!</h3>
         <p style="color: var(--text-color); line-height: 1.6; font-size: 1.05rem;">
-            Agora, este bolão também pode ser acessado neste endereço:<br>
-            <a href="https://bolaocopa2026.xyz" target="_blank" style="color: #3498db; font-weight: bold; font-size: 1.2rem; text-decoration: underline; display: inline-block; margin: 10px 0;">
-                bolaocopa2026.xyz
-            </a>
+            Os jogos de mata-mata começarama ser adicionados!
         </p>
         <p style="color: #7f8c8d; font-size: 0.9rem; margin-bottom: 20px;">
-            O endereço atual também continuará ativo e funcionando normalmente.
+            OBS.: Somente os resultados de tempo normal (sem prorrogação e pênaltis) serão considerados.
         </p>
         <button class="save-btn" onclick="closeDomainModal()" style="margin-top: 0; width: auto; padding: 10px 30px;">Entendido</button>
     </div>
