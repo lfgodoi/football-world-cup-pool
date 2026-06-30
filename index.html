@@ -443,6 +443,7 @@
             <ul style="padding-left: 20px; color: #333; line-height: 1.6;">
                 <li>Palpites poderão ser enviados somente até 10 minutos antes do início do jogo.</li>
                 <li>O resultado de cada jogo, assim como a pontuação obtida pelo palpite de cada jogador, serão atualizados automaticamente em um prazo de até duas horas após o término do jogo.</li>
+                <li>Em jogos de mata-mata, serão considerados somente os placares em tempo normal, isto é, sem prorrogação e pênaltis.</li>
                 <li>Este é um aplicativo gratuito, destinado exclusivamente para fins de entretenimento.</li>
                 <li>Todas as funcionalidades do aplicativo são 100% gratuitas, sem qualquer exigência de pagamento.</li>
                 <li>O aplicativo permite a criação de grupos para o compartilhamento de palpites entre amigos. Contudo, qualquer aposta externa realizada com base nesses resultados, seja envolvendo dinheiro ou bens materiais, é de inteira responsabilidade dos usuários, sem qualquer vínculo ou envolvimento do desenvolvedor.</li>
@@ -943,7 +944,7 @@ async function saveGuess(matchId, inputElement) {
         loadGroupSelector();
         loadGroups();
         initBackgroundMusic();
-        openDomainModal();
+        //openDomainModal();
     };
     
     // ==================== GRUPOS ====================
@@ -1165,7 +1166,7 @@ function closeDomainModal() {
     <div class="modal-content" style="text-align: center; max-width: 450px; border-top: 6px solid var(--accent-color);">
         <h3 style="color: var(--primary-color); margin-bottom: 15px;">📢 Novidade no Bolão!</h3>
         <p style="color: var(--text-color); line-height: 1.6; font-size: 1.05rem;">
-            Os jogos de mata-mata começarama ser adicionados!
+            Os jogos de mata-mata começaram a ser adicionados!
         </p>
         <p style="color: #7f8c8d; font-size: 0.9rem; margin-bottom: 20px;">
             OBS.: Somente os resultados de tempo normal (sem prorrogação e pênaltis) serão considerados.
